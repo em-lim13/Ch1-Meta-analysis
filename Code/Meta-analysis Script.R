@@ -13,7 +13,16 @@ library(visreg)
 library(metafor)
 library(esc)
 
- 
+# packages for raster stuff?
+library(ncdf4)
+library(RNetCDF)
+library(tidync)
+
+library(ncmeta)
+library(stars)
+library(devtools)
+library(raster) #crashes RStudio
+library(tidyr)
 #In the first case, object x is a fitted model object coming from the rma.uni, rma.mh, or rma.peto functions. The corresponding method is then forest.rma.
 
 
@@ -208,6 +217,10 @@ convert_z2r(-0.0010)
 
 # Chl a data ------
 
+# Seasonal chl a data
+# https://oceancolor.gsfc.nasa.gov/cgi/l3?per=SN&prd=CHL_chlor_a.nc&sen=T&res=9km&num=24&ctg=Standard&date=21Dec1999
+
+
 meta_years <- meta %>%
   group_by(year, season) %>%
   summarise(n = n())
@@ -218,4 +231,8 @@ meta_years <- meta %>%
 
 # https://ropensci.org/blog/2019/11/05/tidync/?fbclid=IwAR24t1CeqPahPBZNXLUd9XO-hq292coSSMuIiROqX-Fa6BjAClkPbWKhIM4
 
+# try to load a file
+setwd("~/Downloads")
 
+file <- brick("T20001732000264.L3b_SNSU_CHL.nc")
+oisst <- tidync(file)
