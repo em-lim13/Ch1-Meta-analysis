@@ -1,0 +1,14 @@
+ ,estimate,SE,t-value,df,p-value
+Intercept,0.45,0.33,1.37,232,0.17
+climateSubtropical,-0.29,0.36,-0.81,232,0.42
+climateTemperate,0.30,0.28,1.10,232,0.27
+ppCoral,-0.12,0.35,-0.33,232,0.74
+ppEndosymbiont,-0.20,0.38,-0.53,232,0.60
+ppPhytoplankton,-0.54,0.22,-2.42,232,0.02
+ppSeagrass,-0.90,0.22,-4.15,232,< 0.001
+nat_bin2Field: animals stocked,0.07,0.16,0.43,232,0.66
+nat_bin2Mesocosm,0.18,0.14,1.24,232,0.22
+climateSubtropical:ppCoral,0.52,0.42,1.23,232,0.22
+climateSubtropical:ppEndosymbiont,0.08,0.44,0.18,232,0.86
+climateSubtropical:ppPhytoplankton,1.06,0.35,3.06,232,0.002
+climateSubtropical:ppSeagrass,0.99,0.30,3.34,232,< 0.001

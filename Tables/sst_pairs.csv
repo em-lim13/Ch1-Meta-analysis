@@ -1,0 +1,6 @@
+contrast,pp,estimate,SE,df,t-ratio,p-value
+Cold - Hot,Algae,0.58,0.23,238,2.50,0.01
+Cold - Hot,Coral,NA,NA,NA,NA,NA
+Cold - Hot,Endosymbiont,NA,NA,NA,NA,NA
+Cold - Hot,Phytoplankton,-0.17,0.21,238,-0.81,0.42
+Cold - Hot,Seagrass,-0.36,0.20,238,-1.79,0.08

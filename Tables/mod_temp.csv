@@ -1,0 +1,11 @@
+ ,estimate,SE,t-value,df,p-value
+Intercept,0.55,0.19,2.87,158,0.005
+temp_center,-0.04,0.04,-1.11,158,0.27
+ppCoral,0.37,0.65,0.56,158,0.57
+ppEndosymbiont,-0.24,0.57,-0.42,158,0.68
+ppPhytoplankton,-0.12,0.23,-0.51,158,0.61
+ppSeagrass,-0.51,0.25,-2.08,158,0.04
+temp_center:ppCoral,-0.03,0.12,-0.20,158,0.84
+temp_center:ppEndosymbiont,0.02,0.12,0.13,158,0.90
+temp_center:ppPhytoplankton,0.04,0.04,1.07,158,0.28
+temp_center:ppSeagrass,0.06,0.05,1.35,158,0.18

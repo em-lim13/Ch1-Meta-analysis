@@ -1,0 +1,111 @@
+Paper,Climate,N levels,Consumer,Producer,Design,Duration,Measured,n
+"Allgeier et al., 2013",trop,Low,Fishes,Seagrass,unstocked,10,growth,1
+"Allgeier et al., 2018",trop,Low,Fishes,Algae,unstocked,NA,end point,1
+"Allgeier et al., 2018",trop,Low,Fishes,Seagrass,unstocked,NA,end point,1
+"Allgeier et al., 2018",trop,Low,Fishes,Seagrass,unstocked,60,growth,1
+"Allgeier et al., 2020",trop,Low,Fishes,Coral,unstocked,304,growth,2
+"Allgeier et al., 2020",trop,Low,Fishes,Endo,unstocked,304,inst,2
+"Androuin et al., 2018",temp,High,Molluscs,Phyto,mesocosm,10,growth,1
+"Aquilino et al., 2009",temp,High,Molluscs,Algae,unstocked,NA,end point,4
+"Aquilino et al., 2009",temp,High,Molluscs,Algae,unstocked,15,growth,1
+"Aquilino et al., 2009",temp,High,Molluscs,Algae,stocked,49,growth,1
+"Aquilino et al., 2009",temp,High,Molluscs,Algae,stocked,365,growth,6
+"Archer et al., 2015",trop,Low,Sponges,Seagrass,unstocked,14,growth,1
+"Arzul et al., 2001",temp,Low,Fishes,Phyto,mesocosm,NA,growth,5
+"Arzul et al., 2001",temp,High,Molluscs,Phyto,mesocosm,NA,growth,6
+"Benkwitt et al., 2023",trop,Low,Birds,Coral,unstocked,346.29,growth,1
+"Benkwitt et al., 2023",trop,Low,Birds,Coral,unstocked,398.95,growth,1
+Bracken 2004,temp,Low,Molluscs,Algae,mesocosm,24,growth,1
+"Cardini et al., 2022",temp,High,Molluscs,Seagrass,mesocosm,21,growth,2
+"Cardini et al., 2022",temp,High,Molluscs,Seagrass,mesocosm,42,end point,1
+"Cardini et al., 2022",temp,High,Molluscs,Seagrass,mesocosm,42,growth,2
+"Chase et al., 2014",trop,Low,Fishes,Coral,unstocked,14,growth,6
+"Chase et al., 2018",trop,Low,Fishes,Coral,unstocked,NA,end point,1
+"Chase et al., 2018",trop,Low,Fishes,Endo,unstocked,NA,inst,2
+"Chase et al., 2018",trop,Low,Fishes,Coral,mesocosm,64,growth,1
+"Chase et al., 2018",trop,Low,Fishes,Endo,mesocosm,36,inst,2
+"Chase et al., 2018",trop,Low,Fishes,Endo,mesocosm,64,inst,2
+"Cherif et al., 2016",temp,Low,Molluscs,Phyto,stocked,1,inst,2
+"Cherif et al., 2016",temp,Low,Molluscs,Phyto,stocked,2,inst,2
+"Cherif et al., 2016",temp,Low,Molluscs,Phyto,stocked,3,inst,2
+"Cherif et al., 2016",temp,Low,Molluscs,Phyto,stocked,4,inst,2
+"Cognie and Barille, 1999",temp,High,Molluscs,Phyto,mesocosm,6,inst,18
+"Easson et al., 2014",trop,Low,Sponges,Algae,stocked,28,inst,1
+"Escalas et al., 2022",temp,Low,Fishes,Phyto,mesocosm,8,inst,1
+Francis thesis,trop,Low,Fishes,Algae,stocked,35,growth,1
+Francis thesis,trop,Low,Fishes,Phyto,mesocosm,3,inst,2
+Griffin thesis,temp,Low,Molluscs,Algae,mesocosm,11,end point,1
+Griffin thesis,temp,Low,Molluscs,Algae,mesocosm,17,end point,1
+Griffin thesis,temp,Low,Molluscs,Seagrass,mesocosm,11,growth,1
+Griffin thesis,temp,Low,Molluscs,Seagrass,mesocosm,24,growth,1
+Griffin thesis,temp,Low,Molluscs,Seagrass,mesocosm,28,growth,3
+"Healing et al., 2024",temp,Low,Birds,Algae,unstocked,NA,end point,6
+"Hepburn and Hurd, 2005",temp,High,Jellies,Algae,unstocked,14,growth,1
+"Holbrook et al., 2008",trop,Low,Fishes,Coral,stocked,30,growth,1
+"Holbrook et al., 2011",trop,Low,Fishes,Coral,stocked,30,growth,1
+"Layman et al., 2016",trop,Low,Fishes,Seagrass,unstocked,NA,end point,5
+"MacTavish et al., 2012",temp,Low,Cukes,Phyto,mesocosm,14,inst,1
+"MacTavish et al., 2012",temp,Low,Molluscs,Phyto,mesocosm,14,inst,1
+"Marmen et al., 2017",temp,High,Birds,Phyto,unstocked,NA,inst,2
+"Meyer et al., 1983",trop,Low,Fishes,Coral,unstocked,243,growth,1
+"Meyer et al., 1983",trop,Low,Fishes,Coral,unstocked,365,growth,1
+"Meyer and Schultz, 1985",trop,Low,Fishes,Coral,unstocked,NA,end point,2
+"Meyer and Schultz, 1985",trop,Low,Fishes,Coral,unstocked,122,growth,5
+"Meyer and Schultz, 1985",trop,Low,Fishes,Endo,unstocked,NA,inst,1
+"Peterson and Heck, 2001",trop,Low,Molluscs,Algae,stocked,123,growth,1
+"Peterson and Heck, 2001",trop,Low,Molluscs,Seagrass,stocked,12,growth,5
+"Peterson and Heck, 2001",trop,Low,Molluscs,Seagrass,stocked,123,growth,2
+"Peterson et al., 2013",trop,Low,Fishes,Algae,unstocked,NA,end point,1
+"Peterson et al., 2013",trop,Low,Fishes,Seagrass,unstocked,12,growth,1
+Pfister 2007,temp,High,Molluscs,Algae,unstocked,70,growth,1
+Pfister 2007,temp,High,Molluscs,Phyto,unstocked,14,growth,2
+"Porat and Chadwick-Furman, 2005",trop,Low,Fishes,Coral,mesocosm,56,growth,1
+"Porat and Chadwick-Furman, 2005",trop,Low,Fishes,Endo,mesocosm,14,inst,1
+"Porat and Chadwick-Furman, 2005",trop,Low,Fishes,Endo,mesocosm,28,inst,1
+"Porat and Chadwick-Furman, 2005",trop,Low,Fishes,Endo,mesocosm,42,inst,1
+"Porat and Chadwick-Furman, 2005",trop,Low,Fishes,Endo,mesocosm,56,inst,1
+"Sandoval-Gil et al., 2016",temp,Low,Molluscs,Seagrass,stocked,NA,end point,4
+"Sandoval-Gil et al., 2016",temp,Low,Molluscs,Seagrass,stocked,0.04,inst,6
+"Sandoval-Gil et al., 2016",temp,Low,Molluscs,Seagrass,stocked,14,growth,1
+Savage 2019,trop,Low,Birds,Coral,unstocked,365,growth,1
+"Shantz et al., 2015",trop,Low,Fishes,Algae,unstocked,NA,end point,4
+"Shantz et al., 2015",trop,Low,Fishes,Coral,unstocked,NA,end point,2
+"Shantz et al., 2015",trop,Low,Fishes,Coral,unstocked,98,growth,1
+"Shantz et al., 2023",trop,Low,Fishes,Coral,mesocosm,10,growth,2
+"Shantz et al., 2023",trop,Low,Fishes,Endo,mesocosm,14,inst,1
+"Shantz et al., 2023",trop,Low,Fishes,Endo,mesocosm,17,inst,1
+"Shantz et al., 2023",trop,Low,Fishes,Endo,mesocosm,20,inst,1
+"Shantz et al., 2023",trop,Low,Fishes,Endo,mesocosm,24,inst,1
+"Shantz et al., 2023",trop,Low,Fishes,Endo,mesocosm,34,inst,1
+"Slattery et al., 2013",trop,Low,Sponges,Algae,unstocked,NA,end point,4
+"Slattery et al., 2013",trop,Low,Sponges,Coral,unstocked,NA,end point,4
+"Slattery et al., 2013",trop,Low,Sponges,Coral,unstocked,1825,growth,4
+"Slattery et al., 2013",trop,Low,Sponges,Endo,unstocked,NA,inst,15
+"Uthicke and Klumpp, 1998",trop,Low,Cukes,Phyto,mesocosm,1,inst,1
+Uthicke 2001,trop,Low,Cukes,Phyto,mesocosm,0.06,inst,1
+Uthicke 2001,trop,Low,Cukes,Phyto,mesocosm,0.12,inst,1
+Uthicke 2001,trop,Low,Cukes,Phyto,mesocosm,0.19,inst,1
+Uthicke 2001,trop,Low,Cukes,Phyto,mesocosm,0.25,inst,1
+Uthicke 2001,trop,Low,Cukes,Phyto,mesocosm,0.5,inst,1
+Uthicke 2001,trop,Low,Cukes,Phyto,mesocosm,0.75,inst,1
+Uthicke 2001,trop,Low,Cukes,Phyto,mesocosm,1,inst,2
+Uthicke 2001,trop,Low,Cukes,Phyto,mesocosm,2,inst,1
+Uthicke 2001,trop,Low,Cukes,Phyto,mesocosm,3,inst,1
+Uthicke 2001,trop,Low,Cukes,Phyto,mesocosm,4,inst,1
+Uthicke 2001,trop,Low,Cukes,Phyto,mesocosm,5,inst,1
+"Vinther et al., 2008",temp,High,Molluscs,Algae,unstocked,NA,end point,3
+"Vinther et al., 2008",temp,High,Molluscs,Seagrass,unstocked,NA,end point,12
+"Vinther et al., 2008",temp,High,Molluscs,Seagrass,unstocked,7,growth,2
+"Vinther and Holmer, 2008",temp,High,Molluscs,Algae,mesocosm,30,end point,1
+"Vinther and Holmer, 2008",temp,High,Molluscs,Seagrass,mesocosm,30,end point,1
+"Vinther and Holmer, 2008",temp,High,Molluscs,Seagrass,mesocosm,30,growth,1
+"Vinther and Holmer, 2008",temp,High,Molluscs,Seagrass,mesocosm,63,end point,3
+"West et al., 2009",temp,Low,Jellies,Phyto,stocked,NA,inst,5
+"West et al., 2009",temp,Low,Jellies,Phyto,stocked,2,inst,1
+"West et al., 2009",temp,Low,Jellies,Phyto,stocked,3,inst,3
+"West et al., 2009",temp,Low,Jellies,Phyto,stocked,4,inst,1
+"West et al., 2009",temp,Low,Jellies,Phyto,stocked,5,inst,1
+"West et al., 2009",temp,Low,Jellies,Phyto,stocked,6,inst,3
+"Wiedenmann et al., 2023",trop,Low,Birds,Coral,unstocked,730,growth,1
+"Zhang et al., 2021",temp,Low,Molluscs,Seagrass,stocked,31,growth,1
+"Zhang et al., 2021",temp,Low,Molluscs,Seagrass,stocked,181,growth,1

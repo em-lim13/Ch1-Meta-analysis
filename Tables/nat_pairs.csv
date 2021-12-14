@@ -1,0 +1,16 @@
+contrast,pp,estimate,SE,df,t-ratio,p-value
+Unstocked - Stocked,Algae,-0.33,0.27,232,-1.22,0.45
+Unstocked - Mesocosm,Algae,-0.99,0.38,232,-2.64,0.02
+Stocked - Mesocosm,Algae,-0.66,0.43,232,-1.55,0.27
+Unstocked - Stocked,Coral,0.22,0.46,232,0.48,0.88
+Unstocked - Mesocosm,Coral,0.02,0.38,232,0.06,1.00
+Stocked - Mesocosm,Coral,-0.20,0.57,232,-0.35,0.94
+Unstocked - Stocked,Endo,NA,NA,NA,NA,NA
+Unstocked - Mesocosm,Endo,-0.27,0.27,232,-1.00,0.32
+Stocked - Mesocosm,Endo,NA,NA,NA,NA,NA
+Unstocked - Stocked,Phyto,-0.42,0.56,232,-0.75,0.73
+Unstocked - Mesocosm,Phyto,-0.58,0.52,232,-1.11,0.51
+Stocked - Mesocosm,Phyto,-0.16,0.28,232,-0.58,0.83
+Unstocked - Stocked,Seagrass,-0.20,0.28,232,-0.69,0.77
+Unstocked - Mesocosm,Seagrass,0.37,0.28,232,1.32,0.39
+Stocked - Mesocosm,Seagrass,0.57,0.31,232,1.83,0.16

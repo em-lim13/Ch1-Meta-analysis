@@ -1,0 +1,3 @@
+ ,estimate,SE,t-value,df,p-value
+Intercept,0.49,0.12,4.27,48,< 0.001
+ppEndosymbiont,-0.35,0.11,-3.17,48,0.003

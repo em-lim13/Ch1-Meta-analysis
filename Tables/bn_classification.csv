@@ -1,0 +1,45 @@
+Paper,author,Author description,Proxy or measured,Nitrogen (uM),Nitrogen level
+"Allgeier et al., 2020","Allgeier, Jacob E and Andskog, Mona A and Hensel, Enie and Appaldo, Richard and Layman, Craig and Kemp, Dustin W",oligotrophic,proxy,0.03,Low
+"Allgeier et al., 2013","Allgeier, Jacob E. and Yeager, Lauren A. and Layman, Craig A.",low,proxy,0.03,Low
+"Archer et al., 2015","Archer, Stephanie K. and Stoner, Elizabeth W. and Layman, Craig A.",oligotrophic,proxy,0.03,Low
+"Layman et al., 2016","Layman, Craig A. and Allgeier, Jacob E. and Montana, Carmen G.",oligotrophic,proxy,0.03,Low
+"Y. et al., 2021","Y. Stacy Zhang, Rachel K. Gittman, Sarah E. Donaher, Stacy N. Trackenberg, T. van der Heide, and Brian R. Silliman",NA,proxy,0.04,Low
+"Allgeier et al., 2018","Allgeier, Jacob E. and Layman, Craig A. and Montana, Carmen G. and Hensel, Enie and Appaldo, Richard and Rosemond, Amy D.",extremely low,measure,0.05,Low
+"Francis et al., NA","Francis, FT and Cote, IM",oligotrophic,proxy,0.05,Low
+"Chase et al., 2018","Chase, T. J. and Pratchett, M. S. and Frank, G. E. and Hoogenboom, M. O.",oligotrophic,proxy,0.08,Low
+"Porat et al., 2005","Porat, D and Chadwick-Furman, N E",oligotrophic,measure,0.1,Low
+"Meyer et al., 1985","Meyer, J L and Schultz, E T",nutrient-poor,proxy,0.2,Low
+"Meyer et al., 1983","Meyer, J L and Schultz, E T and Helfman, G S",nutrient-poor,measure,0.2,Low
+"Slattery et al., 2013","Slattery, Marc and Gochfeld, Deborah J. and Easson, Cole G. and O'Donahue, Lindsay R. K.",NA,measure,0.22,Low
+"Holbrook et al., 2011","Holbrook, Sally J and Schmitt, Russell J and Brooks, Andrew J",NA,proxy,0.37,Low
+"Holbrook et al., 2008","Holbrook, Sally J and Brooks, Andrew J and Schmitt, Russell J and Stewart, Hannah L",oligotrophic,proxy,0.43,Low
+"Benkwitt et al., 2023","Benkwitt, CE and D'Angelo, C and Dunn, RE and Gunn, RL and Healing, S and Mardones, ML and Wiedenmann, J and Wilson, SK and Graham, NAJ",low,proxy,0.61,Low
+"Wiedenmann et al., 2023","Wiedenmann, J and D'Angelo, C and Mardones, ML and Moore, S and Benkwitt, CE and Graham, NAJ and Hambach, B and Wilson, PA and Vanstone, J and Eyal, G and Ben-Zvi, O and Loya, Y and Genin, A",low,proxy,0.61,Low
+"Escalas et al., 2022","Escalas, A and Avouac, A and Belmaker, J and Bouvier, T and Cledassou, V and Ferraton, F and Rieuvilleneuve, F and Rilov, G and Mulet, AR and Goldberg, DS and Villeger, S",NA,measure,0.76,Low
+"Arzul et al., 2001","Arzul, G and Seguel, M and Clment, A",NA,measure,1,Low
+"West et al., 2009","West, Elizabeth J. and Pitt, Kylie A. and Welsh, David T. and Koop, Klaus and Rissik, David",NA,measure,1.03,Low
+"Griffin et al., NA","Griffin, J and Hovel K",oligotrophic,proxy,1.05,Low
+"Savage et al., 2019","Savage, Candida",NA,measure,1.06,Low
+"Sandoval-Gil et al., 2016","Sandoval-Gil, Jose and Alexandre, Ana and Santos, Rui and Camacho-Ibar, Victor F.",oligotrophic,measure,1.07,Low
+"Peterson et al., 2001","Peterson, B J and Heck, KL Jr",oligotrophic,proxy,1.36,Low
+"Shantz et al., 2015","Shantz, Andrew A. and Ladd, Mark C. and Schrack, Elizabeth and Burkepile, Deron E.",oligotrophic,proxy,1.4,Low
+"Shantz et al., 2023","Shantz, Andrew A and Ladd, Mark C and Ezzat, Leila and Schmitt, Russell J and Holbrook, Sally J and Schmeltzer, Emily and Rebecca Vega Thurber and Burkepile, Deron E",oligotrophic,measure,1.53,Low
+"Uthicke et al., 1998","Uthicke, S and Klumpp, DW",oligotrophic,measure,1.68,Low
+"Uthicke et al., 2001","Uthicke, S",oligotrophic,measure,1.73,Low
+"Bracken et al., 2004","Bracken, Matthew ES",deplete,measure,1.8,Low
+"MacTavish et al., 2012","MacTavish T, Stenton-Dozey J, Vopel K,  Savage C",NA,proxy,1.9,Low
+"Chase et al., 2014","Chase, T J and Pratchett and Walker, SPW and Hoogenboom, MO",oligotrophic,proxy,2.35,Low
+"Peterson et al., 2013","Peterson, Bradley J and Valentine, John F and Heck, Kenneth L",oligotrophic,proxy,2.86,Low
+"Cherif et al., 2016","Cherif, Mehdi and Granados, Monica and Duffy, Sean and Robert, Pauline and Pequin, Berangere and Mohit, Vani and McKindsey, Christopher W. and Archambault, Philippe and Myrand, Bruno and Lovejoy, Connie and Tremblay, Rejean and Plourde, Stephane and Fussmann, Gregor F.",low,measure,2.9,Low
+"Easson et al., 2014","Easson, Cole G. and Slattery, Marc and Baker, David M. and Gochfeld, Deborah J.",oligotrophic,proxy,3.26,Low
+"Healing et al., 2024","Healing, S and Benkwitt, CE and Dunn, RE and Graham, NAJ",NA,proxy,4,High
+"Hepburn et al., 2005","Hepburn, Christopher D and Hurd, Catriona L",high,measure,4.26,High
+"Cardini et al., 2022","Cardini, U and Marin-Guirao, L and Montilla, LM and Marzocchi, U and Chiavarini, S and Rimauro, J and Quero, GM and Petersen, JM and Procaccini, G",NA,measure,4.26,High
+"Cognie et al., 1999","Cognie, B and Barille, L",NA,proxy,5.64,High
+"Arzul et al., 2001","Arzul, G and Seguel, M and Clment, A",NA,measure,8.3,High
+"Androuin et al., 2018","Androuin, Thibault and Polerecky, Lubos and Decottignies, Priscilla and Dubois, Stanislas F and Dupuy, Christine and Hubas, Cdric and Jesus, Bruno and Le Gall, Erwan and Marzloff, Martin P and Carlier, Antoine",eutrophic,proxy,10.1,High
+"Marmen et al., 2017","Marmen, Marieve Bouchard and Kenchington, Ellen and Ardyna, Mathieu and Archambault, Philippe",NA,measure,10.62,High
+"Vinther et al., 2008","Vinther, H F and Laursen, J S and Holmer, M",eutrophic,proxy,11,High
+"Vinther et al., 2008","Vinther, Hanne Fogh and Holmer, Marianne",eutrophic,proxy,11,High
+"Aquilino et al., 2009","Aquilino, Kristin M. and Bracken, Matthew E. S. and Faubel, Melinda N. and Stachowicz, John J.",nutrient-replete,measure,13.15,High
+"Pfister et al., 2007","Pfister, Catherine A",nutrient-replete,measure,20.49,High

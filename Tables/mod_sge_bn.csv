@@ -1,0 +1,5 @@
+ ,estimate,SE,t-value,df,p-value
+Intercept,0.87,0.28,3.15,40,0.003
+ppSeagrass,-1.00,0.30,-3.30,40,0.002
+bn_catLow nut,-0.86,0.37,-2.29,40,0.03
+ppSeagrass:bn_catLow nut,1.12,0.42,2.70,40,0.01

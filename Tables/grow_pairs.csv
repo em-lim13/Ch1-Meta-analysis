@@ -1,0 +1,16 @@
+contrast,pp,estimate,SE,df,t-ratio,p-value
+endpoint - growth_rate_data,Algae,-0.69,0.24,235,-2.93,0.01
+endpoint - timepoint,Algae,0.13,0.61,235,0.22,0.97
+growth_rate_data - timepoint,Algae,0.82,0.62,235,1.32,0.39
+endpoint - growth_rate_data,Coral,0.48,0.24,235,2.00,0.05
+endpoint - timepoint,Coral,NA,NA,NA,NA,NA
+growth_rate_data - timepoint,Coral,NA,NA,NA,NA,NA
+endpoint - growth_rate_data,Endo,NA,NA,NA,NA,NA
+endpoint - timepoint,Endo,NA,NA,NA,NA,NA
+growth_rate_data - timepoint,Endo,NA,NA,NA,NA,NA
+endpoint - growth_rate_data,Phyto,NA,NA,NA,NA,NA
+endpoint - timepoint,Phyto,NA,NA,NA,NA,NA
+growth_rate_data - timepoint,Phyto,-0.36,0.24,235,-1.49,0.14
+endpoint - growth_rate_data,Seagrass,-0.21,0.18,235,-1.16,0.48
+endpoint - timepoint,Seagrass,-0.27,0.29,235,-0.94,0.61
+growth_rate_data - timepoint,Seagrass,-0.07,0.30,235,-0.22,0.97

@@ -1,0 +1,4 @@
+ ,estimate,SE,t-value,df,p-value
+c_activityMobile Inverts,0.34,0.17,2.04,242,0.04
+c_activitySessile Inverts,0.38,0.08,4.59,242,< 0.001
+c_activityVertebrates,0.30,0.09,3.50,242,< 0.001

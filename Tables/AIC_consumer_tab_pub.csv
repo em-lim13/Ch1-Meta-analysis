@@ -1,0 +1,5 @@
+rowname,df,AIC
+mod_bn_cat,12,483.28
+mod_bn_cat_cons,14,484.17
+mod_tt,12,484.42
+mod_tt_cons,14,483.82

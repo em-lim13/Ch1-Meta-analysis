@@ -1,0 +1,5 @@
+rowname,df,AIC
+mod_bn_cat_noadd,12,278.09
+mod_bn_cat_add,13,277.85
+mod_tt_noadd,10,280.99
+mod_tt_add,11,280.09

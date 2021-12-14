@@ -1,0 +1,121 @@
+contrast,estimate,SE,df,t-ratio,p-value
+Baltic Sea - California Current,-0.25,0.24,230,-1.06,1.00
+Baltic Sea - (Canadian Eastern Arctic - West Greenland),0.18,0.50,230,0.36,1.00
+Baltic Sea - Caribbean Sea,-0.33,0.23,230,-1.44,0.99
+Baltic Sea - (Celtic-Biscay Shelf),-0.25,0.25,230,-1.02,1.00
+Baltic Sea - East Central Australian Shelf,-0.57,0.31,230,-1.84,0.90
+Baltic Sea - Gulf of Alaska,-1.76,0.58,230,-3.02,0.17
+Baltic Sea - Gulf of Mexico,-0.10,0.26,230,-0.40,1.00
+Baltic Sea - Mediterranean Sea,-0.19,0.35,230,-0.55,1.00
+Baltic Sea - New Zealand Shelf,-1.34,0.41,230,-3.23,0.10
+Baltic Sea - North Sea,0.02,0.42,230,0.04,1.00
+Baltic Sea - Northeast Australian Shelf,-0.09,0.24,230,-0.39,1.00
+Baltic Sea - Offshore,-0.49,0.27,230,-1.84,0.90
+Baltic Sea - Red Sea,-0.38,0.37,230,-1.03,1.00
+Baltic Sea - Scotian Shelf,0.13,0.33,230,0.39,1.00
+Baltic Sea - Southeast U.S. Continental Shelf,-0.32,0.26,230,-1.23,1.00
+California Current - (Canadian Eastern Arctic - West Greenland),0.43,0.49,230,0.88,1.00
+California Current - Caribbean Sea,-0.08,0.21,230,-0.39,1.00
+California Current - (Celtic-Biscay Shelf),0.001,0.22,230,0.01,1.00
+California Current - East Central Australian Shelf,-0.32,0.30,230,-1.09,1.00
+California Current - Gulf of Alaska,-1.51,0.57,230,-2.63,0.38
+California Current - Gulf of Mexico,0.15,0.24,230,0.62,1.00
+California Current - Mediterranean Sea,0.06,0.33,230,0.18,1.00
+California Current - New Zealand Shelf,-1.09,0.40,230,-2.70,0.34
+California Current - North Sea,0.27,0.41,230,0.66,1.00
+California Current - Northeast Australian Shelf,0.16,0.22,230,0.72,1.00
+California Current - Offshore,-0.24,0.25,230,-0.97,1.00
+California Current - Red Sea,-0.13,0.36,230,-0.36,1.00
+California Current - Scotian Shelf,0.38,0.31,230,1.21,1.00
+California Current - Southeast U.S. Continental Shelf,-0.06,0.24,230,-0.27,1.00
+(Canadian Eastern Arctic - West Greenland) - Caribbean Sea,-0.51,0.49,230,-1.06,1.00
+(Canadian Eastern Arctic - West Greenland) - (Celtic-Biscay Shelf),-0.43,0.49,230,-0.88,1.00
+(Canadian Eastern Arctic - West Greenland) - East Central Australian Shelf,-0.75,0.53,230,-1.42,0.99
+(Canadian Eastern Arctic - West Greenland) - Gulf of Alaska,-1.94,0.72,230,-2.69,0.35
+(Canadian Eastern Arctic - West Greenland) - Gulf of Mexico,-0.28,0.50,230,-0.57,1.00
+(Canadian Eastern Arctic - West Greenland) - Mediterranean Sea,-0.37,0.55,230,-0.68,1.00
+(Canadian Eastern Arctic - West Greenland) - New Zealand Shelf,-1.52,0.59,230,-2.55,0.44
+(Canadian Eastern Arctic - West Greenland) - North Sea,-0.16,0.60,230,-0.27,1.00
+(Canadian Eastern Arctic - West Greenland) - Northeast Australian Shelf,-0.27,0.49,230,-0.56,1.00
+(Canadian Eastern Arctic - West Greenland) - Offshore,-0.67,0.50,230,-1.34,0.99
+(Canadian Eastern Arctic - West Greenland) - Red Sea,-0.56,0.57,230,-0.99,1.00
+(Canadian Eastern Arctic - West Greenland) - Scotian Shelf,-0.05,0.54,230,-0.09,1.00
+(Canadian Eastern Arctic - West Greenland) - Southeast U.S. Continental Shelf,-0.50,0.50,230,-1.00,1.00
+Caribbean Sea - (Celtic-Biscay Shelf),0.08,0.22,230,0.38,1.00
+Caribbean Sea - East Central Australian Shelf,-0.24,0.29,230,-0.82,1.00
+Caribbean Sea - Gulf of Alaska,-1.42,0.57,230,-2.50,0.48
+Caribbean Sea - Gulf of Mexico,0.23,0.23,230,1.00,1.00
+Caribbean Sea - Mediterranean Sea,0.14,0.33,230,0.44,1.00
+Caribbean Sea - New Zealand Shelf,-1.00,0.40,230,-2.52,0.46
+Caribbean Sea - North Sea,0.35,0.40,230,0.88,1.00
+Caribbean Sea - Northeast Australian Shelf,0.24,0.21,230,1.14,1.00
+Caribbean Sea - Offshore,-0.16,0.24,230,-0.66,1.00
+Caribbean Sea - Red Sea,-0.05,0.35,230,-0.14,1.00
+Caribbean Sea - Scotian Shelf,0.46,0.31,230,1.50,0.98
+Caribbean Sea - Southeast U.S. Continental Shelf,0.02,0.23,230,0.08,1.00
+(Celtic-Biscay Shelf) - East Central Australian Shelf,-0.32,0.30,230,-1.07,1.00
+(Celtic-Biscay Shelf) - Gulf of Alaska,-1.51,0.58,230,-2.62,0.39
+(Celtic-Biscay Shelf) - Gulf of Mexico,0.15,0.25,230,0.60,1.00
+(Celtic-Biscay Shelf) - Mediterranean Sea,0.06,0.34,230,0.17,1.00
+(Celtic-Biscay Shelf) - New Zealand Shelf,-1.09,0.41,230,-2.68,0.35
+(Celtic-Biscay Shelf) - North Sea,0.27,0.41,230,0.65,1.00
+(Celtic-Biscay Shelf) - Northeast Australian Shelf,0.16,0.23,230,0.69,1.00
+(Celtic-Biscay Shelf) - Offshore,-0.24,0.26,230,-0.95,1.00
+(Celtic-Biscay Shelf) - Red Sea,-0.13,0.36,230,-0.36,1.00
+(Celtic-Biscay Shelf) - Scotian Shelf,0.38,0.32,230,1.19,1.00
+(Celtic-Biscay Shelf) - Southeast U.S. Continental Shelf,-0.07,0.24,230,-0.27,1.00
+East Central Australian Shelf - Gulf of Alaska,-1.18,0.61,230,-1.95,0.85
+East Central Australian Shelf - Gulf of Mexico,0.47,0.31,230,1.51,0.98
+East Central Australian Shelf - Mediterranean Sea,0.38,0.39,230,0.98,1.00
+East Central Australian Shelf - New Zealand Shelf,-0.77,0.45,230,-1.70,0.94
+East Central Australian Shelf - North Sea,0.59,0.45,230,1.30,1.00
+East Central Australian Shelf - Northeast Australian Shelf,0.48,0.30,230,1.62,0.96
+East Central Australian Shelf - Offshore,0.08,0.32,230,0.25,1.00
+East Central Australian Shelf - Red Sea,0.19,0.41,230,0.46,1.00
+East Central Australian Shelf - Scotian Shelf,0.70,0.37,230,1.88,0.88
+East Central Australian Shelf - Southeast U.S. Continental Shelf,0.26,0.31,230,0.83,1.00
+Gulf of Alaska - Gulf of Mexico,1.65,0.58,230,2.85,0.25
+Gulf of Alaska - Mediterranean Sea,1.57,0.62,230,2.51,0.47
+Gulf of Alaska - New Zealand Shelf,0.42,0.67,230,0.63,1.00
+Gulf of Alaska - North Sea,1.77,0.67,230,2.66,0.36
+Gulf of Alaska - Northeast Australian Shelf,1.66,0.57,230,2.90,0.22
+Gulf of Alaska - Offshore,1.26,0.59,230,2.16,0.72
+Gulf of Alaska - Red Sea,1.37,0.64,230,2.15,0.73
+Gulf of Alaska - Scotian Shelf,1.89,0.62,230,3.06,0.15
+Gulf of Alaska - Southeast U.S. Continental Shelf,1.44,0.58,230,2.48,0.49
+Gulf of Mexico - Mediterranean Sea,-0.09,0.35,230,-0.26,1.00
+Gulf of Mexico - New Zealand Shelf,-1.23,0.41,230,-2.98,0.18
+Gulf of Mexico - North Sea,0.12,0.42,230,0.29,1.00
+Gulf of Mexico - Northeast Australian Shelf,0.01,0.24,230,0.04,1.00
+Gulf of Mexico - Offshore,-0.39,0.27,230,-1.46,0.99
+Gulf of Mexico - Red Sea,-0.28,0.37,230,-0.75,1.00
+Gulf of Mexico - Scotian Shelf,0.23,0.33,230,0.71,1.00
+Gulf of Mexico - Southeast U.S. Continental Shelf,-0.21,0.26,230,-0.83,1.00
+Mediterranean Sea - New Zealand Shelf,-1.15,0.47,230,-2.42,0.53
+Mediterranean Sea - North Sea,0.21,0.48,230,0.44,1.00
+Mediterranean Sea - Northeast Australian Shelf,0.10,0.33,230,0.29,1.00
+Mediterranean Sea - Offshore,-0.30,0.35,230,-0.85,1.00
+Mediterranean Sea - Red Sea,-0.19,0.44,230,-0.44,1.00
+Mediterranean Sea - Scotian Shelf,0.32,0.40,230,0.80,1.00
+Mediterranean Sea - Southeast U.S. Continental Shelf,-0.12,0.34,230,-0.36,1.00
+New Zealand Shelf - North Sea,1.36,0.53,230,2.57,0.43
+New Zealand Shelf - Northeast Australian Shelf,1.24,0.40,230,3.09,0.14
+New Zealand Shelf - Offshore,0.84,0.42,230,2.01,0.82
+New Zealand Shelf - Red Sea,0.96,0.49,230,1.94,0.86
+New Zealand Shelf - Scotian Shelf,1.47,0.46,230,3.18,0.11
+New Zealand Shelf - Southeast U.S. Continental Shelf,1.02,0.41,230,2.47,0.49
+North Sea - Northeast Australian Shelf,-0.11,0.41,230,-0.27,1.00
+North Sea - Offshore,-0.51,0.42,230,-1.21,1.00
+North Sea - Red Sea,-0.40,0.50,230,-0.81,1.00
+North Sea - Scotian Shelf,0.11,0.47,230,0.24,1.00
+North Sea - Southeast U.S. Continental Shelf,-0.33,0.42,230,-0.80,1.00
+Northeast Australian Shelf - Offshore,-0.40,0.25,230,-1.60,0.97
+Northeast Australian Shelf - Red Sea,-0.29,0.36,230,-0.80,1.00
+Northeast Australian Shelf - Scotian Shelf,0.22,0.32,230,0.71,1.00
+Northeast Australian Shelf - Southeast U.S. Continental Shelf,-0.22,0.24,230,-0.93,1.00
+Offshore - Red Sea,0.11,0.38,230,0.29,1.00
+Offshore - Scotian Shelf,0.62,0.34,230,1.85,0.90
+Offshore - Southeast U.S. Continental Shelf,0.18,0.27,230,0.67,1.00
+Red Sea - Scotian Shelf,0.51,0.42,230,1.21,1.00
+Red Sea - Southeast U.S. Continental Shelf,0.07,0.37,230,0.18,1.00
+Scotian Shelf - Southeast U.S. Continental Shelf,-0.45,0.33,230,-1.36,0.99

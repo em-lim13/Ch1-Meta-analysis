@@ -1,0 +1,13 @@
+rowname,estimate,se,tval,df,pval
+intrcpt,0.38,0.16,2.4,170,0.017
+temp_center,-0.042,0.022,-1.9,170,0.057
+natural2,-0.094,0.25,-0.37,170,0.71
+natural3,0.2,0.2,0.96,170,0.34
+natural4,0.56,0.3,1.9,170,0.062
+natural5,0.093,0.19,0.48,170,0.63
+pp_groupCoral,-0.021,0.42,-0.051,170,0.96
+pp_groupPhytoplankton,-0.25,0.23,-1.1,170,0.29
+pp_groupPlants,-0.17,0.2,-0.85,170,0.4
+temp_center:pp_groupCoral,0.029,0.084,0.35,170,0.73
+temp_center:pp_groupPhytoplankton,0.029,0.026,1.1,170,0.27
+temp_center:pp_groupPlants,0.094,0.031,3,170,0.0027

@@ -1,0 +1,6 @@
+contrast,pp,estimate,SE,df,t-ratio,p-value
+High nut - Low nut,Algae,0.78,0.22,191,3.48,< 0.001
+High nut - Low nut,Coral,NA,NA,NA,NA,NA
+High nut - Low nut,Endosymbiont,NA,NA,NA,NA,NA
+High nut - Low nut,Phytoplankton,-0.10,0.53,191,-0.18,0.85
+High nut - Low nut,Seagrass,-0.30,0.20,191,-1.45,0.15

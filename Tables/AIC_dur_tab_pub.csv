@@ -1,0 +1,5 @@
+rowname,df,AIC
+mod_bn_cat_nodur,12,467.43
+mod_bn_cat_dur,13,467.68
+mod_tt_nodur,12,467.93
+mod_tt_dur,13,468.26

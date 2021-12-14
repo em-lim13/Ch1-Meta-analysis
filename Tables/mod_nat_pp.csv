@@ -1,0 +1,15 @@
+ ,estimate,SE,t-value,df,p-value
+Intercept,0.33,0.15,2.22,232,0.03
+nat_bin2Stocked,0.33,0.27,1.22,232,0.23
+nat_bin2Mesocosm,0.99,0.38,2.64,232,0.01
+ppCoral,0.16,0.19,0.87,232,0.39
+ppEndosymbiont,-0.26,0.21,-1.27,232,0.21
+ppPhytoplankton,-0.44,0.52,-0.84,232,0.40
+ppSeagrass,-0.09,0.21,-0.45,232,0.65
+nat_bin2Stocked:ppCoral,-0.55,0.53,-1.04,232,0.30
+nat_bin2Mesocosm:ppCoral,-1.02,0.53,-1.92,232,0.06
+nat_bin2Mesocosm:ppEndosymbiont,-0.72,0.45,-1.59,232,0.11
+nat_bin2Stocked:ppPhytoplankton,0.08,0.62,0.14,232,0.89
+nat_bin2Mesocosm:ppPhytoplankton,-0.41,0.64,-0.64,232,0.52
+nat_bin2Stocked:ppSeagrass,-0.14,0.37,-0.37,232,0.71
+nat_bin2Mesocosm:ppSeagrass,-1.36,0.41,-3.31,232,0.001

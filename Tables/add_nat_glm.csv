@@ -1,0 +1,16 @@
+ ,estimate,SE,z-value,p-value
+Intercept,1.05,1.00,1.05,0.29
+nat_bin2Stocked,-0.02,0.30,-0.08,0.94
+nat_bin2Mesocosm,0.27,1.46,0.18,0.86
+ppCoral,-0.71,1.23,-0.57,0.57
+ppEndosymbiont,-0.71,1.35,-0.53,0.60
+ppPhytoplankton,-0.56,1.76,-0.32,0.75
+ppSeagrass,-0.02,0.63,-0.03,0.97
+nat_bin2Stocked:ppCoral,-0.60,1.32,-0.45,0.65
+nat_bin2Mesocosm:ppCoral,0.16,1.92,0.08,0.94
+nat_bin2Stocked:ppEndosymbiont,NA,NA,NA,NA
+nat_bin2Mesocosm:ppEndosymbiont,0.16,1.98,0.08,0.94
+nat_bin2Stocked:ppPhytoplankton,-1.80,1.78,-1.01,0.31
+nat_bin2Mesocosm:ppPhytoplankton,0.01,2.17,0.003,1.00
+nat_bin2Stocked:ppSeagrass,-0.97,1.85,-0.53,0.60
+nat_bin2Mesocosm:ppSeagrass,NA,NA,NA,NA

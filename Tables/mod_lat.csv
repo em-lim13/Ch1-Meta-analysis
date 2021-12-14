@@ -1,0 +1,11 @@
+ ,estimate,SE,t-value,df,p-value
+Intercept,0.43,0.13,3.43,236,< 0.001
+lat_stand,0.28,0.13,2.13,236,0.03
+ppCoral,-0.20,0.33,-0.61,236,0.54
+ppEndosymbiont,-0.59,0.37,-1.59,236,0.11
+ppPhytoplankton,-0.02,0.17,-0.09,236,0.93
+ppSeagrass,-0.20,0.16,-1.21,236,0.23
+lat_stand:ppCoral,-0.51,0.33,-1.55,236,0.12
+lat_stand:ppEndosymbiont,-0.63,0.41,-1.54,236,0.13
+lat_stand:ppPhytoplankton,-0.38,0.17,-2.24,236,0.03
+lat_stand:ppSeagrass,-0.49,0.16,-3.06,236,0.002

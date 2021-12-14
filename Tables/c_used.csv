@@ -1,0 +1,33 @@
+c_group,c_family,c_genus,c_species,n
+Birds,NA,NA,NA,12
+Fishes,Haemulidae,Haemulon,flavolineatum,3
+Fishes,Haemulidae,Haemulon,spp.,10
+Fishes,Haemulidae,NA,NA,7
+Fishes,Moronidae,Dicentrarchus,labrax,3
+Fishes,Pomacentridae,Amphiprion,bicinctus,5
+Fishes,Pomacentridae,Dascyllus,aruanus,14
+Fishes,Pomacentridae,Dascyllus,flavicaudus,7
+Fishes,Pomacentridae,NA,NA,1
+Fishes,Salmonidae,Salmo,salar,2
+Fishes,Siganidae,Siganus,rivulatus,1
+Fishes,NA,NA,NA,16
+Sea cucumbers,Holothuriidae,Holothuria,atra,1
+Sea cucumbers,Stichopodidae,Australostichopus,mollis,1
+Sea cucumbers,NA,NA,NA,12
+Molluscs,Calyptraeidae,Crepidula,fornicata,1
+Molluscs,Columbellidae,Alia,carinata,1
+Molluscs,Lucinidae,Loripes,orbiculatus,5
+Molluscs,Mytilidae,Modiolus,americanus,9
+Molluscs,Mytilidae,Mytilus,californianus,16
+Molluscs,Mytilidae,Mytilus,chilensis,2
+Molluscs,Mytilidae,Mytilus,edulis,31
+Molluscs,Mytilidae,Perna,canaliculus,1
+Molluscs,Ostreidae,Magallana,gigas,33
+Molluscs,Veneridae,Mercenaria,mercenaria,2
+Molluscs,Veneridae,Ruditapes,philippinarum,5
+Molluscs,NA,NA,NA,1
+Jellies,Campanulariidae,Obelia,geniculata,1
+Jellies,Catostylidae,Catostylus,mosaicus,14
+Sponges,Aplysinidae,Aplysina,cauliformis,1
+Sponges,Halichondriidae,Halichondria,melanadocia,1
+Sponges,NA,NA,NA,27

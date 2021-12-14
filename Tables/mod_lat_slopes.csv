@@ -1,0 +1,6 @@
+pp,estimate,SE,df,t-ratio,p-value
+Algae,0.28,0.13,236,2.13,0.03
+Coral,-0.23,0.29,236,-0.79,0.43
+Endosymbiont,-0.35,0.38,236,-0.92,0.36
+Phytoplankton,-0.10,0.11,236,-0.93,0.36
+Seagrass,-0.21,0.13,236,-1.66,0.10

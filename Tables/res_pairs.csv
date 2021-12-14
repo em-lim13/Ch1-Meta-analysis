@@ -1,0 +1,48 @@
+contrast,pp,estimate,SE,df,t-ratio,p-value
+area - biomass,Algae,0.79,0.46,223,1.69,0.44
+area - chl_a,Algae,0.40,0.61,223,0.66,0.97
+area - count,Algae,-0.06,0.75,223,-0.09,1.00
+area - percent cover,Algae,0.75,0.45,223,1.68,0.45
+biomass - chl_a,Algae,-0.38,0.49,223,-0.78,0.93
+biomass - count,Algae,-0.85,0.64,223,-1.32,0.68
+biomass - percent cover,Algae,-0.03,0.26,223,-0.13,1.00
+chl_a - count,Algae,-0.47,0.76,223,-0.61,0.97
+chl_a - percent cover,Algae,0.35,0.48,223,0.73,0.95
+count - percent cover,Algae,0.82,0.63,223,1.29,0.70
+area - biomass,Coral,0.42,0.33,223,1.30,0.79
+area - circumference,Coral,0.42,0.43,223,0.99,0.92
+area - length,Coral,0.04,0.45,223,0.09,1.00
+area - percent cover,Coral,-0.64,0.41,223,-1.58,0.61
+area - volume,Coral,0.40,0.63,223,0.63,0.99
+biomass - circumference,Coral,-0.003,0.34,223,-0.01,1.00
+biomass - length,Coral,-0.38,0.37,223,-1.05,0.90
+biomass - percent cover,Coral,-1.07,0.32,223,-3.35,0.01
+biomass - volume,Coral,-0.02,0.58,223,-0.04,1.00
+circumference - length,Coral,-0.38,0.46,223,-0.83,0.96
+circumference - percent cover,Coral,-1.06,0.38,223,-2.77,0.07
+circumference - volume,Coral,-0.02,0.65,223,-0.03,1.00
+length - percent cover,Coral,-0.68,0.44,223,-1.57,0.62
+length - volume,Coral,0.36,0.65,223,0.55,0.99
+percent cover - volume,Coral,1.04,0.64,223,1.64,0.57
+chl_a - count,Endo,0.20,0.40,223,0.51,0.61
+biomass - chl_a,Phyto,-0.37,0.61,223,-0.61,0.93
+biomass - count,Phyto,-0.17,0.61,223,-0.27,0.99
+biomass - photosynthesis,Phyto,0.13,0.62,223,0.21,1.00
+chl_a - count,Phyto,0.20,0.21,223,0.96,0.77
+chl_a - photosynthesis,Phyto,0.50,0.24,223,2.11,0.15
+count - photosynthesis,Phyto,0.29,0.24,223,1.24,0.60
+area - biomass,Seagrass,0.01,0.43,223,0.03,1.00
+area - count,Seagrass,0.40,0.44,223,0.92,0.94
+area - length,Seagrass,0.31,0.44,223,0.69,0.98
+area - photosynthesis,Seagrass,-0.05,0.47,223,-0.12,1.00
+area - width,Seagrass,-0.17,0.71,223,-0.24,1.00
+biomass - count,Seagrass,0.39,0.20,223,1.92,0.39
+biomass - length,Seagrass,0.30,0.21,223,1.40,0.73
+biomass - photosynthesis,Seagrass,-0.07,0.30,223,-0.22,1.00
+biomass - width,Seagrass,-0.18,0.58,223,-0.32,1.00
+count - length,Seagrass,-0.10,0.22,223,-0.44,1.00
+count - photosynthesis,Seagrass,-0.46,0.32,223,-1.43,0.71
+count - width,Seagrass,-0.58,0.59,223,-0.97,0.93
+length - photosynthesis,Seagrass,-0.36,0.33,223,-1.10,0.88
+length - width,Seagrass,-0.48,0.59,223,-0.81,0.97
+photosynthesis - width,Seagrass,-0.12,0.64,223,-0.18,1.00

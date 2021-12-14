@@ -1,0 +1,4 @@
+contrast,estimate,SE,df,t-ratio,p-value
+endpoint - growth_rate_data,-0.08,0.12,243,-0.70,0.76
+endpoint - timepoint,-0.01,0.12,243,-0.08,1.00
+growth_rate_data - timepoint,0.07,0.11,243,0.66,0.78

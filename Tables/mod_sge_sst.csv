@@ -1,0 +1,5 @@
+ ,estimate,SE,t-value,df,p-value
+Intercept,0.70,0.26,2.73,40,0.01
+ppSeagrass,-0.83,0.29,-2.92,40,0.01
+sst_catHot,-0.65,0.38,-1.72,40,0.09
+ppSeagrass:sst_catHot,0.93,0.42,2.21,40,0.03

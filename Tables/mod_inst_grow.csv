@@ -1,0 +1,4 @@
+ ,estimate,SE,t-value,df,p-value
+grow_time_endendpoint,0.30,0.10,3.02,243,0.003
+grow_time_endgrowth_rate_data,0.39,0.08,4.60,243,< 0.001
+grow_time_endtimepoint,0.31,0.08,3.67,243,< 0.001

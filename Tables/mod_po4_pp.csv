@@ -1,0 +1,10 @@
+ ,estimate,SE,t-value,df,p-value
+Intercept,0.10,0.25,0.42,68,0.68
+po4_stand,0.77,0.23,3.37,68,0.001
+ppCoral,1.60,0.95,1.69,68,0.10
+ppEndosymbiont,0.57,0.44,1.30,68,0.20
+ppPhytoplankton,0.04,0.29,0.14,68,0.89
+ppSeagrass,1.15,0.86,1.33,68,0.19
+po4_stand:ppCoral,1.64,2.25,0.73,68,0.47
+po4_stand:ppPhytoplankton,-0.69,0.24,-2.87,68,0.01
+po4_stand:ppSeagrass,1.39,1.92,0.73,68,0.47
