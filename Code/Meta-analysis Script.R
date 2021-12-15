@@ -21,7 +21,7 @@ library(tidync)
 library(ncmeta)
 library(stars)
 library(devtools)
-library(raster) #crashes RStudio
+#library(raster) #crashes RStudio
 library(tidyr)
 #In the first case, object x is a fitted model object coming from the rma.uni, rma.mh, or rma.peto functions. The corresponding method is then forest.rma.
 
@@ -218,21 +218,30 @@ convert_z2r(-0.0010)
 # Chl a data ------
 
 # Seasonal chl a data
-# https://oceancolor.gsfc.nasa.gov/cgi/l3?per=SN&prd=CHL_chlor_a.nc&sen=T&res=9km&num=24&ctg=Standard&date=21Dec1999
+# Download chl a data from here
+# https://oceancolor.gsfc.nasa.gov/l3/order/
 
-
+# group meta data by season and year so I know which years to download
 meta_years <- meta %>%
-  group_by(year, season) %>%
+  group_by(year_of_study, season) %>%
   summarise(n = n())
 
-# want a csv for each time point with lat long for each study in that time point
+# basically want a csv for each time point with lat long for each study in that time point
 
-# tidync is a package that will load data into raster
 
-# https://ropensci.org/blog/2019/11/05/tidync/?fbclid=IwAR24t1CeqPahPBZNXLUd9XO-hq292coSSMuIiROqX-Fa6BjAClkPbWKhIM4
+# try to load a chl a file
+# chl a value is in mg/m^2
 
-# try to load a file
 setwd("~/Downloads")
+summer2004 <- raster("A20041732004264.L3m_SNSU_CHL_chlor_a_4km.nc")
+setwd("~/Documents/MSc/Ch2-Meta-analysis")
 
-file <- brick("T20001732000264.L3b_SNSU_CHL.nc")
-oisst <- tidync(file)
+# make a df for this one season / year
+meta_summer2004 <- meta %>%
+  filter(season == "summer" & year_of_study == "2004") %>%
+  select(paper_num, lat_dec, long_dec)
+
+#try using extract()
+
+extract(summer2004, meta_summer2004$lat_dec)
+# fail
