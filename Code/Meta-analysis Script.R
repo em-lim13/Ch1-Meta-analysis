@@ -14,15 +14,19 @@ library(metafor)
 library(esc)
 
 # packages for raster stuff?
-library(ncdf4)
-library(RNetCDF)
-library(tidync)
+#library(ncdf4)
+#library(RNetCDF)
+#library(tidync)
 
-library(ncmeta)
-library(stars)
-library(devtools)
-#library(raster) #crashes RStudio
-library(tidyr)
+#library(ncmeta)
+#library(stars)
+#library(tidyr)
+library(raster)
+library(rgdal)
+library(sf)
+library(sp)
+
+
 #In the first case, object x is a fitted model object coming from the rma.uni, rma.mh, or rma.peto functions. The corresponding method is then forest.rma.
 
 
@@ -206,6 +210,7 @@ model_lat_paper <- rma.mv(yi = yi,
               random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
               test = "t")
 
+
 summary(model_lat_paper)
 
 # need to convert z estimate to a 'normal correlation
@@ -228,20 +233,104 @@ meta_years <- meta %>%
 
 # basically want a csv for each time point with lat long for each study in that time point
 
+# Define coordinate reference system
+prj4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+my.projection <- st_crs(prj4string)
 
-# try to load a chl a file
+# SUMMER 2004 -----
+
+# Load a chl a file
 # chl a value is in mg/m^2
+raster_summer2004 <- raster("Data/Rasters/A20041732004264.L3m_SNSU_CHL_chlor_a_4km.nc", warn = FALSE)
 
+# make a df for this one season / year
+meta_summer2004 <- meta %>%
+  filter(season == "spring" & year_of_study == "2005") %>%
+  dplyr::select(indiv, long_dec, lat_dec)
+
+# turn the df into a shapefile
+sf_summer2004 <- meta_summer2004 %>%
+  select(-indiv) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec"), crs = my.projection) %>%
+  as(Class = "Spatial")
+
+# use the raster and the shapefile to extract the 
+chla_summer2004 <- raster::extract(raster_summer2004, sf_summer2004, df = TRUE) %>%
+  bind_cols(meta_summer2004) %>%
+  select(-ID)
+
+# SPRING 2005 -----
+
+# Load chl a
+raster_spring2005 <- raster("Data/Rasters/A20050802005171.L3m_SNSP_CHL_chlor_a_4km.nc", warn = FALSE)
+
+# make a df for this one season / year
+meta_spring2005 <- meta %>%
+  filter(season == "spring" & year_of_study == "2005") %>%
+  dplyr::select(indiv, long_dec, lat_dec)
+
+# turn the df into a shapefile
+sf_spring2005 <- meta_spring2005 %>%
+  select(-indiv) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec"), crs = my.projection) %>%
+  as(Class = "Spatial")
+
+# use the raster and the shapefile to extract the 
+chla_spring2005 <- raster::extract(raster_spring2005, sf_spring2005, df = TRUE) %>%
+  bind_cols(meta_spring2005) %>%
+  select(-ID)
+
+# SUMMER 2005 -------
+
+# Load chl a
+raster_summer2005 <- raster("Data/Rasters/A20051722005263.L3m_SNSU_CHL_chlor_a_4km.nc", warn = FALSE)
+
+# make a df for this one season / year
+meta_summer2005 <- meta %>%
+  filter(season == "summer" & year_of_study == "2005") %>%
+  dplyr::select(indiv, long_dec, lat_dec)
+
+# turn the df into a shapefile
+sf_summer2005 <- meta_summer2005 %>%
+  select(-indiv) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec"), crs = my.projection) %>%
+  as(Class = "Spatial")
+
+# use the raster and the shapefile to extract the 
+chla_summer2005 <- raster::extract(raster_summer2005, sf_summer2005, df = TRUE) %>%
+  bind_cols(meta_summer2005) %>%
+  select(-ID)
+
+
+# Old way to get shapefiles ------
+
+# Load chl a
 setwd("~/Downloads")
-summer2004 <- raster("A20041732004264.L3m_SNSU_CHL_chlor_a_4km.nc")
+raster_summer2004 <- raster("Data/Rasters/A20041732004264.L3m_SNSU_CHL_chlor_a_4km.nc")
 setwd("~/Documents/MSc/Ch2-Meta-analysis")
 
 # make a df for this one season / year
 meta_summer2004 <- meta %>%
   filter(season == "summer" & year_of_study == "2004") %>%
-  select(paper_num, lat_dec, long_dec)
+  dplyr::select(indiv, lat_dec, long_dec)
 
-#try using extract()
+write_csv(meta_summer2004, path =  "Output/Data/season_year/meta_summer2004.csv")
 
-extract(summer2004, meta_summer2004$lat_dec)
-# fail
+# Exported the meta_summer2004 df to csv, loaded it into QGIS, added a layer of points ('create points layer from table' tool), then exported it as a shapefile
+
+# Open QGIS
+# Layer > Add Layer > Add Deliminated Text Layer > select file
+# File format = CSV
+# Geometry Definition: Select Point coordinates, set x = long and y = lat
+# Layer Settings: select Use spatial index
+# Click Add
+# Right click layer > Export > Save feature as > ESRI Shapefile
+# Click dots next to file name to set path (put in shapefile folder)
+# Click ok
+
+sf_summer2004 <- readOGR(dsn = path.expand("~/Documents/MSc/Ch2-Meta-analysis/Shapefiles"), layer = "summer2004")
+
+chla_summer2004 <- raster::extract(raster_summer2004, sf_summer2004[,c("lat_dec", "long_dec")], df = TRUE)
+
+summer2004 <- cbind(meta_summer2004, chla_summer2004) %>%
+  select(-ID)
