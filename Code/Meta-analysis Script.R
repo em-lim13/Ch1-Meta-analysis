@@ -52,6 +52,14 @@ meta_rejected <- read_csv("Output/Data/rejected_papers.csv")
 
 meta_all_papers <- rbind(meta_reduced, meta_rejected) # df with all the papers I'm using and the papers I can't use but that still mostly meet the criteria
 
+# Add chla data to orig meta dataframe  -------
+# this file was writted in the Chla_extraction.R code file
+chla_all_values <- read_csv("Output/Data/all_extracted_chla.csv")
+
+meta_final <- meta %>%
+  left_join(chla_all_values, by = "indiv")
+# THERE ARE STILL SOME NA CHL A VALUES, MIGHT HAVE TO TWEAK THOSE COORDINATES
+
 # Graphing --------
 # Make palette
 pal <- pnw_palette("Bay", 6)
@@ -92,6 +100,16 @@ ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
 
 #ggsave("Output/Figures/response_lat_noleg", device = "png",
 #      height = 9, width = 16, dpi = 400)
+
+
+# GRAPHING CHL A
+ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
+  geom_point()+
+  scale_colour_manual(values = rev(pal), labels = c("South Temperate","South Subtropics", "Tropics", "North Subtropics", "North Temperate", "North Polar")) +
+  labs(y = "Latitude", x = "Chlorophyll a (mg/m^2)") + 
+  theme_black() + 
+  theme(legend.position = "none") +
+  ylim(c(-73, 73))
 
 # stats???------
 
@@ -207,14 +225,6 @@ convert_z2r(-0.0010)
 # do a permutation test to make sure we haven't overfit the model 
 #permutest(model_lat_paper)
 
-
-# Add chla data to orig meta dataframe  -------
-# this file was writted in the Chla_extraction.R code file
-chla_all_values <- read_csv("Output/Data/all_extracted_chla.csv")
-
-meta_final <- meta %>%
-  left_join(chla_all_values, by = "indiv")
-# THERE ARE STILL SOME NA CHL A VALUES, MIGHT HAVE TO TWEAK THOSE COORDINATES
 
 # Old way to get shapefiles ------
 # Load chl a
