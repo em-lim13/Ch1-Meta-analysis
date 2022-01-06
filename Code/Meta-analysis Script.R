@@ -74,7 +74,7 @@ ggplot(meta_all_papers, aes(y = climate_zone, fill = climate_zone)) +
 
 
 #ggsave("Output/Figures/climate_zone_bar", device = "png",
-#       height = 9, width = 16, dpi = 400)
+#      height = 9, width = 16, dpi = 400)
 
 
 # Look at effect sizes????
@@ -99,7 +99,7 @@ ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
   theme_black()
 
 #ggsave("Output/Figures/response_lat_noleg", device = "png",
-#      height = 9, width = 16, dpi = 400)
+ #     height = 9, width = 16, dpi = 400)
 
 
 # GRAPHING CHL A
@@ -110,6 +110,9 @@ ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
   theme_black() + 
   theme(legend.position = "none") +
   ylim(c(-73, 73))
+
+#ggsave("Output/Figures/chla_lat", device = "png",
+#     height = 9, width = 16, dpi = 400)
 
 # stats???------
 
