@@ -23,7 +23,7 @@ library(esc)
 
 # Load data
 meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
-  mutate(climate_zone = factor(climate_zone, levels = c("SP", "ST", "SST", "T", "NST", "NT", "NP"))) %>%
+  mutate(climate_zone = factor(climate_zone, levels = c("ST", "SST", "T", "NST", "NT", "NP"))) %>%
   mutate(sd_treatment = replace_na(sd_treatment, 999),
          sd_control = replace_na(sd_control, 999)) %>%
   mutate(sd_treatment = ifelse(sd_treatment == 999, se_treatment*sqrt(treatment_n), sd_treatment),
@@ -56,12 +56,33 @@ meta_all_papers <- rbind(meta_reduced, meta_rejected) # df with all the papers I
 # this file was writted in the Chla_extraction.R code file
 chla_all_values <- read_csv("Output/Data/all_extracted_chla.csv")
 
-meta_final <- meta %>%
-  left_join(chla_all_values, by = "indiv")
-# THERE ARE STILL SOME NA CHL A VALUES, MIGHT HAVE TO TWEAK THOSE COORDINATES
+# What's the max and min chla value?
+max <- max(chla_all_values$chla_est) # 26.73629
+min<- min(chla_all_values$chla_est) # 0.05139377
 
-# maybe I could split the chla data into categories? 1-5? 1-3?
-# Could make it easier to visualize with a forest plot....
+# How big should each bin be?
+bin_size <- max/5
+upper_bin1 <- bin_size
+upper_bin2 <- bin_size*2
+upper_bin3 <- bin_size*3
+upper_bin4 <- bin_size*4
+upper_bin5 <- bin_size*5
+
+# use this so that it still works even if the max chla value changes
+
+# add chl a estimates to df
+# add a binned chl a column
+meta_final <- meta %>%
+  left_join(chla_all_values, by = "indiv") %>%
+  mutate(chla_bin = ifelse(chla_est <= upper_bin1, "1",
+                      ifelse(chla_est <= upper_bin2, "2",
+                             ifelse(chla_est <= upper_bin3, "3", 
+                                 ifelse(chla_est <= upper_bin4, "4", "5")))))
+
+# ggplot to make sure this worked
+ggplot(meta_final, aes(chla_bin, chla_est)) +
+  geom_point() # yay it worked
+
 
 # Graphing --------
 # Make palette
@@ -117,28 +138,18 @@ ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
 #ggsave("Output/Figures/chla_lat", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
+# chla vs effect size?
+ggplot(meta_final, aes(chla_est, yi)) +
+  geom_point() +
+  geom_smooth(method = lm)
+
 # stats???------
 
 # Full versus reduced model comparisons in terms of fit statistics and likelihoods can be obtained with anova.rma
 # Permutation tests for the model coefficient(s) can be obtained with permutest.rma.uni. Tests and confidence intervals based on (cluster) robust methods can be obtained with robust.rma.uni.
 # Tests for funnel plot asymmetry (which may be indicative of publication bias) can be obtained with ranktest.rma and regtest.rma. For models without moderators, the trimfill.rma.uni method can be used to carry out a trim and fill analysis and hc.rma.uni provides a random-effects model analysis that is more robust to publication bias (based on the method by Henmi & Copas, 2010).
 
-meta_model <- rma(yi, vi, data = meta) 
-summary.rma(meta_model)
-# so if we ignore everything, the overall effect of animals on pp is 0.3092, and this is significant
-forest.rma(meta_model)
-
-
-meta_model2 <- rma(yi, vi, mods = ~ climate_zone, data = meta )
-summary.rma(meta_model2)
-forest(meta_model2)
-
-meta_model3 <- rma(yi, vi, mods = ~ lat_dec, data = meta )
-summary.rma(meta_model3)
-forest(meta_model3, cex = 1, subset(study))
-
-
-# Try using "Doing Meta-Analysis in R" -------
+# Try using "Doing Meta-Analysis in R"
 # https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/metareg.html
 
 # If you don't want to compare the models directly using the anova function, use the "REML" (restricted maximum likelihood) 
@@ -162,46 +173,88 @@ model_chla <- rma(yi = yi,
                  vi = vi,
                  data = meta_final,
                  method = "ML",
-                 mods = ~ chla_est,
+                 mods = ~ chla_bin,
                  test = "knha")
 
 # how about the model with chl a? is it better than the null model? YES???
 anova(model_control, model_chla)
 
 
-# Multilevel model
+# Multilevel models ------
 # There is a special way through which we can tell rma.mv to assume such nested random effects. We do this using a slash (/) to separate the higher- and lower-level grouping variable. To the left of /, we put in the level 3 (cluster) variable. To the right, we insert the lower-order variable nested in the larger cluster. Therefore, the general structure of the formula looks like this: ~ 1 | cluster/effects_within_cluster
 
+# Lets look at latitude first
 model_lat_paper <- rma.mv(yi = yi,
               V = vi,
               slab = author,
               data = meta_final,
               method = "REML",
-              mods = ~ lat_dec,
+              mods = ~ climate_zone,
               random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
               test = "t")
 
-
 summary(model_lat_paper)
+# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
+# p-value is 0.9118 so NO, there is NO difference!
+# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
+
+# # Pull coefficient estimates so I can graph them
+intercept_lat <- coef(summary(model_lat_paper))[1,1] # extract the intercept
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+lat_effect_sum <- coef(summary(model_lat_paper)) %>%
+  mutate(climate = factor(c("ST", "SST", "T", "NST", "NT", "NP"),
+                           levels = c("ST", "SST", "T", "NST", "NT", "NP")),
+         effect = ifelse(climate != "Very low", estimate + intercept_lat,
+                         intercept_lat)) # add intercept to other coefficients
+
+# GRAPH THIS
+ggplot(lat_effect_sum, aes(y = climate, x = effect, xmin = ci.lb, xmax = ci.ub)) +
+  geom_point() +
+  geom_errorbar(height = .1) +
+  geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5) +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = "Climate zone")
+
 
 # Now try with chl a
-model_lat_paper <- rma.mv(yi = yi,
+model_chla_paper <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
                           data = meta_final,
                           method = "REML",
-                          mods = ~ chla_est,
+                          mods = ~ chla_bin,
                           random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
                           test = "t")
 
+summary(model_chla_paper)
+# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
+# p-value is 0.0267 so yes, there is a difference!
+# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
-summary(model_lat_paper)
+# Pull coefficient estimates so I can graph them
+intercept_chla <- coef(summary(model_chla_paper))[1,1] # extract the intercept
 
-# need to convert z estimate to a 'normal correlation
-convert_z2r(-0.0010)
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+chla_effect_sum <- coef(summary(model_chla_paper)) %>%
+  mutate(chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high"),
+         levels = c("Very low", "Low", "Medium", "High", "Very high")),
+         effect = ifelse(chla_bin != "Very low", estimate + intercept_chla,
+                         intercept_chla)) # add intercept to other coefficients
+
+# GRAPH THIS?
+ggplot(chla_effect_sum, aes(y = chla_bin, x = effect, xmin = ci.lb, xmax = ci.ub)) +
+  geom_point() +
+  geom_errorbar(height = .1) +
+  geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5) +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = "Chlorophyll a")
+
+# OK OK OK SO LOWER CHL A HAS A HIGHER EFFECT!!!!! WOOOOOOOW
+
 
 # do a permutation test to make sure we haven't overfit the model 
-#permutest(model_lat_paper)
+#permutest(model_chla_paper)
 
 
 # USING BRETT'S CODE????-------
@@ -291,3 +344,20 @@ ggplot(model_output, aes(y= climate_zone, x = effect_est, xmin = ci_lb, xmax = c
   geom_errorbar(height = .1) +
   geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5) +
   theme_classic()
+
+
+# another way of trying to stats
+meta_model <- rma(yi, vi, data = meta) 
+summary.rma(meta_model)
+# so if we ignore everything, the overall effect of animals on pp is 0.3092, and this is significant
+forest.rma(meta_model)
+
+
+meta_model2 <- rma(yi, vi, mods = ~ climate_zone, data = meta )
+summary.rma(meta_model2)
+forest(meta_model2)
+
+meta_model3 <- rma(yi, vi, mods = ~ lat_dec, data = meta )
+summary.rma(meta_model3)
+forest(meta_model3, cex = 1, subset(study))
+
