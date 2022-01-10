@@ -56,6 +56,7 @@ meta_all_papers <- rbind(meta_reduced, meta_rejected) # df with all the papers I
 # this file was writted in the Chla_extraction.R code file
 chla_all_values <- read_csv("Output/Data/all_extracted_chla.csv")
 
+
 # What's the max and min chla value?
 max <- max(chla_all_values$chla_est) # 26.73629
 min<- min(chla_all_values$chla_est) # 0.05139377
