@@ -241,7 +241,11 @@ chla_effect_sum <- coef(summary(model_chla_paper)) %>%
   mutate(chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high"),
          levels = c("Very low", "Low", "Medium", "High", "Very high")),
          effect = ifelse(chla_bin != "Very low", estimate + intercept_chla,
-                         intercept_chla)) # add intercept to other coefficients
+                         intercept_chla),
+         ci.lb = ifelse(chla_bin != "Very low", ci.lb + intercept_chla,
+                        ci.lb),
+         ci.ub = ifelse(chla_bin != "Very low", ci.ub + intercept_chla,
+                        ci.ub)) # add intercept to other coefficients
 
 # GRAPH THIS?
 ggplot(chla_effect_sum, aes(y = chla_bin, x = effect, xmin = ci.lb, xmax = ci.ub)) +
