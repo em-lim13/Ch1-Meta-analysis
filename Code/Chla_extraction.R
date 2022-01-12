@@ -64,6 +64,88 @@ prj4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 my.projection <- st_crs(prj4string)
 
 
+# WINTER 1996 -----
+# Load a chl a file
+# chl a value is in mg/m^2
+
+raster_winter1996 <- raster("Data/Rasters/O19963561997079.L3m_SNWI_CHL_chlor_a_9km.nc", warn = FALSE)
+
+# make a df for this one season / year
+meta_winter1996 <- meta %>%
+  filter(season == "winter" & year_of_study == "1996") %>%
+  dplyr::select(indiv, long_dec, lat_dec)
+
+# turn the df into a shapefile
+sf_winter1996 <- meta_winter1996 %>%
+  dplyr::select(-indiv) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec"), crs = my.projection) %>%
+  as(Class = "Spatial")
+
+# use the raster and the shapefile to extract the 
+chla_winter1996 <- raster::extract(raster_winter1996, sf_winter1996, df = TRUE) %>%
+  bind_cols(meta_winter1996) %>%
+  dplyr::select(-ID)
+
+# SPRING 1997 -----
+# Load a chl a file
+raster_spring1997 <- raster("Data/Rasters/O19970801997171.L3m_SNSP_CHL_chlor_a_9km.nc", warn = FALSE)
+
+# make a df for this one season / year
+meta_spring1997 <- meta %>%
+  filter(season == "spring" & year_of_study == "1997") %>%
+  dplyr::select(indiv, long_dec, lat_dec)
+
+# turn the df into a shapefile
+sf_spring1997 <- meta_spring1997 %>%
+  dplyr::select(-indiv) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec"), crs = my.projection) %>%
+  as(Class = "Spatial")
+
+# use the raster and the shapefile to extract the 
+chla_spring1997 <- raster::extract(raster_spring1997, sf_spring1997, df = TRUE) %>%
+  bind_cols(meta_spring1997) %>%
+  dplyr::select(-ID)
+
+# SUMMER 1997 -----
+# Load a chl a file
+raster_summer1997 <- raster("Data/Rasters/S19971721997263.L3m_SNSU_CHL_chlor_a_9km.nc", warn = FALSE)
+
+# make a df for this one season / year
+meta_summer1997 <- meta %>%
+  filter(season == "summer" & year_of_study == "1997") %>%
+  dplyr::select(indiv, long_dec, lat_dec)
+
+# turn the df into a shapefile
+sf_summer1997 <- meta_summer1997 %>%
+  dplyr::select(-indiv) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec"), crs = my.projection) %>%
+  as(Class = "Spatial")
+
+# use the raster and the shapefile to extract the 
+chla_summer1997 <- raster::extract(raster_summer1997, sf_summer1997, df = TRUE) %>%
+  bind_cols(meta_summer1997) %>%
+  dplyr::select(-ID)
+
+# FALL 1997 -----
+# Load a chl a file
+raster_fall1997 <- raster("Data/Rasters/S19972641997354.L3m_SNAU_CHL_chlor_a_9km.nc", warn = FALSE)
+
+# make a df for this one season / year
+meta_fall1997 <- meta %>%
+  filter(season == "fall" & year_of_study == "1997") %>%
+  dplyr::select(indiv, long_dec, lat_dec)
+
+# turn the df into a shapefile
+sf_fall1997 <- meta_fall1997 %>%
+  dplyr::select(-indiv) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec"), crs = my.projection) %>%
+  as(Class = "Spatial")
+
+# use the raster and the shapefile to extract the 
+chla_fall1997 <- raster::extract(raster_fall1997, sf_fall1997, df = TRUE) %>%
+  bind_cols(meta_fall1997) %>%
+  dplyr::select(-ID)
+
 # SPRING 2002 -----
 # Load a chl a file
 # chl a value is in mg/m^2
@@ -489,6 +571,83 @@ chla_fall2019 <- raster::extract(raster_fall2019, sf_fall2019, df = TRUE) %>%
   bind_cols(meta_fall2019) %>%
   dplyr::select(-ID)
 
+# 1979 - 1981 -------
+# Load chl a from 1979, 1980, 1981
+raster_1979 <- raster("Data/Rasters/C19790011979365.L3m_YR_CHL_chl_ocx_4km.nc", warn = FALSE)
+
+raster_1980 <- raster("Data/Rasters/C19800011980366.L3m_YR_CHL_chl_ocx_4km.nc", warn = FALSE)
+
+raster_1981 <- raster("Data/Rasters/C19810011981365.L3m_YR_CHL_chl_ocx_4km.nc", warn = FALSE)
+
+# make a df for this one season / year
+meta_1979_1981 <- meta %>%
+  filter(year_of_study == "1979-1981") %>%
+  dplyr::select(indiv, long_dec, lat_dec)
+
+# turn the df into a shapefile
+sf_1979_1981 <- meta_1979_1981 %>%
+  dplyr::select(-indiv) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec"), crs = my.projection) %>%
+  as(Class = "Spatial")
+
+# use the raster and the shapefile to extract the chl a data
+temp_1979 <- raster::extract(raster_1979, sf_1979_1981, df = TRUE) %>%
+  rename(chla_1979 = Chlorophyll.Concentration..OC3.Algorithm )%>%
+  dplyr::select(-ID)
+
+temp_1980 <- raster::extract(raster_1980, sf_1979_1981, df = TRUE) %>%
+  rename(chla_1980 = Chlorophyll.Concentration..OC3.Algorithm )%>%
+  dplyr::select(-ID)
+
+temp_1981 <- raster::extract(raster_1981, sf_1979_1981, df = TRUE) %>%
+  rename(chla_1981 = Chlorophyll.Concentration..OC3.Algorithm )%>%
+  dplyr::select(-ID)
+
+# now bind all these yearly averages into the same dataframe and average across all years
+chla_1979_1981 <- bind_cols(temp_1979, temp_1980, temp_1981) %>%
+  mutate(Chlorophyll.Concentration..OCI.Algorithm = rowMeans(cbind(chla_1979, chla_1980, chla_1981))) %>%
+  dplyr::select(Chlorophyll.Concentration..OCI.Algorithm) %>%
+  bind_cols(meta_1979_1981)
+# the chl a name is different but that will make it compatible with the rest
+
+# 1998 - 2000 --------
+# Load chl a from 1998, 1999, 2000
+raster_1998 <- raster("Data/Rasters/S19980011998365.L3m_YR_CHL_chlor_a_9km.nc", warn = FALSE)
+
+raster_1999 <- raster("Data/Rasters/S19990011999365.L3m_YR_CHL_chlor_a_9km.nc", warn = FALSE)
+
+raster_2000 <- raster("Data/Rasters/S20000012000366.L3m_YR_CHL_chlor_a_9km.nc", warn = FALSE)
+
+# make a df for this one season / year
+meta_1998_2000 <- meta %>%
+  filter(year_of_study == "1998-2000") %>%
+  dplyr::select(indiv, long_dec, lat_dec)
+
+# turn the df into a shapefile
+sf_1998_2000 <- meta_1998_2000 %>%
+  dplyr::select(-indiv) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec"), crs = my.projection) %>%
+  as(Class = "Spatial")
+
+# use the raster and the shapefile to extract the chl a data
+temp_1998 <- raster::extract(raster_1998, sf_1998_2000, df = TRUE) %>%
+  rename(chla_1998 = Chlorophyll.Concentration..OCI.Algorithm )%>%
+  dplyr::select(-ID)
+
+temp_1999 <- raster::extract(raster_1999, sf_1998_2000, df = TRUE) %>%
+  rename(chla_1999 = Chlorophyll.Concentration..OCI.Algorithm )%>%
+  dplyr::select(-ID)
+
+temp_2000 <- raster::extract(raster_2000, sf_1998_2000, df = TRUE) %>%
+  rename(chla_2000 = Chlorophyll.Concentration..OCI.Algorithm )%>%
+  dplyr::select(-ID)
+
+# now bind all these yearly averages into the same dataframe and average across all years
+chla_1998_2000 <- bind_cols(temp_1998, temp_1999, temp_2000) %>%
+  mutate(Chlorophyll.Concentration..OCI.Algorithm = rowMeans(cbind(chla_1998, chla_1999, chla_2000))) %>%
+  dplyr::select(Chlorophyll.Concentration..OCI.Algorithm) %>%
+  bind_cols(meta_1998_2000)
+
 # 2000 - 2005 -------
 # Load chl a from 2002, 2003, 2004, and 2005 (project started in 2002)
 raster_2002 <- raster("Data/Rasters/A20020012002365.L3m_YR_CHL_chlor_a_4km.nc", warn = FALSE)
@@ -591,6 +750,38 @@ chla_2003_2005 <- bind_cols(temp_2003b, temp_2004b, temp_2005b) %>%
   dplyr::select(Chlorophyll.Concentration..OCI.Algorithm) %>%
   bind_cols(meta_2003_2005)
 
+# 2005 - 2006 -------
+# Load chl a from 2005, 2006
+raster_2005 <- raster("Data/Rasters/A20050012005365.L3m_YR_CHL_chlor_a_4km.nc", warn = FALSE)
+
+raster_2006 <- raster("Data/Rasters/A20060012006365.L3m_YR_CHL_chlor_a_4km.nc", warn = FALSE)
+
+# make a df for this one season / year
+meta_2005_2006 <- meta %>%
+  filter(year_of_study == "2005-2006") %>%
+  dplyr::select(indiv, long_dec, lat_dec)
+
+# turn the df into a shapefile
+sf_2005_2006 <- meta_2005_2006 %>%
+  dplyr::select(-indiv) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec"), crs = my.projection) %>%
+  as(Class = "Spatial")
+
+# use the raster and the shapefile to extract the chl a data
+temp_2005b <- raster::extract(raster_2005, sf_2005_2006, df = TRUE) %>%
+  rename(chla_2005 = Chlorophyll.Concentration..OCI.Algorithm )%>%
+  dplyr::select(-ID)
+
+temp_2006 <- raster::extract(raster_2006, sf_2005_2006, df = TRUE) %>%
+  rename(chla_2006 = Chlorophyll.Concentration..OCI.Algorithm )%>%
+  dplyr::select(-ID)
+
+# now bind all these yearly averages into the same dataframe and average across all years
+chla_2005_2006 <- bind_cols(temp_2005b, temp_2006) %>%
+  mutate(Chlorophyll.Concentration..OCI.Algorithm = rowMeans(cbind(chla_2005, chla_2006))) %>%
+  dplyr::select(Chlorophyll.Concentration..OCI.Algorithm) %>%
+  bind_cols(meta_2005_2006)
+
 # 2008 --------
 # Load chl a (yearly average for 2008)
 raster_2008 <- raster("Data/Rasters/A20080012008366.L3m_YR_CHL_chlor_a_4km.nc", warn = FALSE)
@@ -611,6 +802,44 @@ sf_2008 <- meta_2008 %>%
 chla_2008 <- raster::extract(raster_2008, sf_2008, df = TRUE) %>%
   bind_cols(meta_2008) %>%
   dplyr::select(-ID)
+
+# 2011 - 2013 -------
+# Load yearly average chl a from 2013, 2014
+raster_2011 <- raster("Data/Rasters/A20110012011365.L3m_YR_CHL_chlor_a_4km.nc", warn = FALSE)
+
+raster_2012 <- raster("Data/Rasters/A20120012012366.L3m_YR_CHL_chlor_a_4km.nc", warn = FALSE)
+
+raster_2013 <- raster("Data/Rasters/A20130012013365.L3m_YR_CHL_chlor_a_4km.nc", warn = FALSE)
+
+# make a df for this one season / year
+meta_2011_2013 <- meta %>%
+  filter(year_of_study == "2011-2013") %>%
+  dplyr::select(indiv, long_dec, lat_dec)
+
+# turn the df into a shapefile
+sf_2011_2013 <- meta_2011_2013 %>%
+  dplyr::select(-indiv) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec"), crs = my.projection) %>%
+  as(Class = "Spatial")
+
+# use the raster and the shapefile to extract the chl a data
+temp_2011 <- raster::extract(raster_2011, sf_2011_2013, df = TRUE) %>%
+  rename(chla_2011 = Chlorophyll.Concentration..OCI.Algorithm )%>%
+  dplyr::select(-ID)
+
+temp_2012 <- raster::extract(raster_2012, sf_2011_2013, df = TRUE) %>%
+  rename(chla_2012 = Chlorophyll.Concentration..OCI.Algorithm )%>%
+  dplyr::select(-ID)
+
+temp_2013b <- raster::extract(raster_2013, sf_2011_2013, df = TRUE) %>%
+  rename(chla_2013 = Chlorophyll.Concentration..OCI.Algorithm )%>%
+  dplyr::select(-ID)
+
+# now bind all these yearly averages into the same dataframe and average across all years
+chla_2011_2013 <- bind_cols(temp_2011, temp_2012, temp_2013b) %>%
+  mutate(Chlorophyll.Concentration..OCI.Algorithm = rowMeans(cbind(chla_2011, chla_2012, chla_2013))) %>%
+  dplyr::select(Chlorophyll.Concentration..OCI.Algorithm) %>%
+  bind_cols(meta_2011_2013)
 
 # 2013 - 2014 -------
 # Load yearly average chl a from 2013, 2014
@@ -679,7 +908,7 @@ chla_2015_2016 <- bind_cols(temp_2015, temp_2016) %>%
 # Combine chl_a dataframes -------
 
 # Stick all the completed chla dataframes together
-chla_prelim <- rbind(chla_2000_2005, chla_2002, chla_2003_2005, chla_2008, chla_2013_2014, chla_2015_2016, chla_fall2012, chla_fall2019, chla_spring2002, chla_spring2005, chla_spring2015, chla_spring2016, chla_spring2018,  chla_summer2004, chla_summer2005, chla_summer2006, chla_summer2009, chla_summer2010, chla_summer2011, chla_summer2012, chla_summer2013, chla_summer2015, chla_summer2018, chla_winter2005, chla_winter2010, chla_winter2013, chla_winter2017) %>% #24 dfs 
+chla_prelim <- rbind(chla_1979_1981, chla_1998_2000, chla_2000_2005, chla_2005_2006, chla_2002, chla_2003_2005, chla_2008, chla_2011_2013, chla_2013_2014, chla_2015_2016, chla_fall1997, chla_fall2012, chla_fall2019, chla_spring1997, chla_spring2002, chla_spring2005, chla_spring2015, chla_spring2016, chla_spring2018, chla_summer1997, chla_summer2004, chla_summer2005, chla_summer2006, chla_summer2009, chla_summer2010, chla_summer2011, chla_summer2012, chla_summer2013, chla_summer2015, chla_summer2018, chla_winter1996, chla_winter2005, chla_winter2010, chla_winter2013, chla_winter2017) %>% #24 dfs 
   rename(chla_est = Chlorophyll.Concentration..OCI.Algorithm) %>%
   dplyr::select(-c(lat_dec, long_dec)) %>%
   mutate(extracted = "yes") # add column that specifies these ones are done
@@ -715,12 +944,17 @@ chla_leftovers <- raster::extract(raster_leftovers, sf_leftovers, df = TRUE) %>%
 
 # now throw all the chla estimate data together, the specific years/seasons and the leftovers
 chla_all_values <- rbind(chla_prelim, chla_leftovers)
+# will be "missing some" bc I didn't look at the papers with negative effect sizes
 
 #write_csv(chla_all_values, path =  "Output/Data/all_extracted_chla.csv")
 # write a csv that I can pick up in the Meta-analysis Script
 
 
 # Papers with NA's: 
+
+# Summer 1997
+
+
 # ALL FIXED NOW
 
 # Hurd et al 2000
