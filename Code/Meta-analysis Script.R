@@ -90,11 +90,13 @@ ggplot(meta_final, aes(chla_bin, chla_est)) +
 # Make palette
 pal <- pnw_palette("Bay", 6)
 
+climate_labs <- c("South Temperate", "South Subtropics", "Tropics", "North Subtropics", "North Temperate", "North Polar")
+
 #using meta_reduced so each paper is only counted once
 ggplot(meta_all_papers, aes(y = climate_zone, fill = climate_zone)) +
   geom_bar(stat="count") +
   scale_fill_manual(values = rev(pal)) +
-  scale_y_discrete(labels = c("South Temperate","South Subtropics", "Tropics", "North Subtropics", "North Temperate", "North Polar")) +
+  scale_y_discrete(labels = climate_labs) +
   labs( y = "Climate Zone", x = "Number of Papers") + 
   theme_black() + theme(legend.position = "none")
 
@@ -106,7 +108,7 @@ ggplot(meta_all_papers, aes(y = climate_zone, fill = climate_zone)) +
 # Look at effect sizes????
 ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
   geom_point(size = 3) +
-  scale_colour_manual(values = rev(pal), labels = c("South Temperate","South Subtropics", "Tropics", "North Subtropics", "North Temperate", "North Polar"), guide = guide_legend(reverse = TRUE)) +
+  scale_colour_manual(values = rev(pal), labels = climate_labs, guide = guide_legend(reverse = TRUE)) +
   labs( y = "Lattitude", x = "Effect size", colour = "Climate Zone") + 
   geom_vline(xintercept = 0, linetype="dotted", colour = "white", size = 1.6) +
   theme_black() +
@@ -131,7 +133,7 @@ ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
 # GRAPHING CHL A
 ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
   geom_point()+
-  scale_colour_manual(values = rev(pal), labels = c("South Temperate","South Subtropics", "Tropics", "North Subtropics", "North Temperate", "North Polar")) +
+  scale_colour_manual(values = rev(pal), labels = climate_labs) +
   labs(y = "Latitude", x = "Chlorophyll a (mg/m^2)") + 
   theme_black() + 
   theme(legend.position = "none") +
@@ -192,7 +194,7 @@ model_lat_paper <- rma.mv(yi = yi,
               data = meta_final,
               method = "REML",
               mods = ~ climate_zone,
-              random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+              random = ~ 1 | paper_num/indiv, 
               test = "t")
 
 summary(model_lat_paper)
@@ -203,20 +205,38 @@ summary(model_lat_paper)
 # # Pull coefficient estimates so I can graph them
 intercept_lat <- coef(summary(model_lat_paper))[1,1] # extract the intercept
 
+# How many papers in each bin?
+lat_n <- meta_final %>%
+  group_by(climate_zone) %>%
+  summarise(n = n()) %>%
+  rename(climate = climate_zone) %>%
+  mutate(dummy = 1:6)
+
 # Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
 lat_effect_sum <- coef(summary(model_lat_paper)) %>%
   mutate(climate = factor(c("ST", "SST", "T", "NST", "NT", "NP"),
                            levels = c("ST", "SST", "T", "NST", "NT", "NP")),
          effect = ifelse(climate != "Very low", estimate + intercept_lat,
-                         intercept_lat)) # add intercept to other coefficients
+                         intercept_lat)) %>% # add intercept to other coefficients
+  left_join(lat_n, by = "climate")
 
 # GRAPH THIS
-ggplot(lat_effect_sum, aes(y = climate, x = effect, xmin = ci.lb, xmax = ci.ub)) +
+n_labs_lat <- c("n = 5", "n = 5", "n = 51", "n = 32", "n = 79", "n = 2")
+
+ggplot(lat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate)) +
   geom_point() +
-  geom_errorbar(height = .1) +
-  geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5) +
+  geom_errorbar() +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
   theme_classic() +
-  labs(x = "Effect size (ROM)", y = "Climate zone")
+  labs(x = "Effect size (ROM)", y = "Climate zone") +
+  scale_y_continuous(breaks = 1:length(climate_labs),
+    labels = climate_labs,
+    sec.axis = sec_axis(~.,
+                        breaks = 1:length(n_labs_lat),
+                        labels = n_labs_lat)) +
+  scale_colour_manual(values = rev(pal))  +
+  theme_black()+ 
+  theme(legend.position = "none")
 
 #ggsave("Output/Figures/effects_lat", device = "png",
 #      height = 9, width = 16, dpi = 400)
@@ -237,6 +257,13 @@ summary(model_chla_paper)
 # p-value is 0.0267 so yes, there is a difference!
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
+# How many papers in each bin?
+chla_n <- meta_final %>%
+  group_by(chla_bin) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:5,
+         chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high")))
+
 # Pull coefficient estimates so I can graph them
 intercept_chla <- coef(summary(model_chla_paper))[1,1] # extract the intercept
 
@@ -249,15 +276,25 @@ chla_effect_sum <- coef(summary(model_chla_paper)) %>%
          ci.lb = ifelse(chla_bin != "Very low", ci.lb + intercept_chla,
                         ci.lb),
          ci.ub = ifelse(chla_bin != "Very low", ci.ub + intercept_chla,
-                        ci.ub)) # add intercept to other coefficients
+                        ci.ub)) %>%# add intercept to other coefficients
+         left_join(chla_n, by = "chla_bin")
 
 # GRAPH THIS?
-ggplot(chla_effect_sum, aes(y = chla_bin, x = effect, xmin = ci.lb, xmax = ci.ub)) +
+chla_bin_labs <- c("Very low", "Low", "Medium", "High", "Very high")
+n_labs_chla <- c("n = 111", "n = 30", "n = 7", "n = 6", "n = 20")
+
+ggplot(chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub)) +
   geom_point() +
   geom_errorbar(height = .1) +
-  geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5) +
+  geom_vline(xintercept = 0, color="black", linetype="dashed", alpha=.5) +
   theme_classic() +
-  labs(x = "Effect size (ROM)", y = "Chlorophyll a")
+  labs(x = "Effect size (ROM)", y = "Chlorophyll a") +
+  scale_y_continuous(breaks = 1:length(chla_bin_labs),
+                     labels = chla_bin_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(n_labs_chla),
+                                         labels = n_labs_chla))
+  
 
 #ggsave("Output/Figures/effects_chla", device = "png",
 #      height = 9, width = 16, dpi = 400)
@@ -283,6 +320,14 @@ summary(model_nat_paper)
 # p-value is 0.0267 so yes, there is a difference!
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
+# How many papers in each bin?
+nat_n <- meta_final %>%
+  group_by(natural) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:5,
+         nat_bin = factor(c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm"),
+                          levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")))
+
 # Pull coefficient estimates so I can graph them
 intercept_nat <- coef(summary(model_nat_paper))[1,1] # extract the intercept
 
@@ -297,22 +342,28 @@ nat_effect_sum <- coef(summary(model_nat_paper)) %>%
          ci.lb = ifelse(nat_bin != "Field: unstocked", ci.lb + intercept_nat,
                         ci.lb),
          ci.ub = ifelse(nat_bin != "Field: unstocked", ci.ub + intercept_nat,
-                        ci.ub)) # add intercept to other coefficients
+                        ci.ub)) %>% # add intercept to other coefficients
+    left_join(nat_n, by = "nat_bin")
 
 # GRAPH THIS?
-ggplot(nat_effect_sum, aes(y = nat_bin, x = effect, xmin = ci.lb, xmax = ci.ub)) +
+nat_labs <- c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")
+
+nat_n_labs <- c("n = 72", "n = 14", "n = 16", "n = 10", "n = 62")
+
+ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub)) +
   geom_point() +
   geom_errorbar(height = .1) +
   geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5) +
   theme_classic() +
-  labs(x = "Effect size (ROM)", y = " ")
+  labs(x = "Effect size (ROM)", y = " ") +
+  scale_y_continuous(breaks = 1:length(nat_labs),
+                     labels = nat_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(nat_n_labs),
+                                         labels = nat_n_labs))
 
 #ggsave("Output/Figures/effects_nat", device = "png",
- #     height = 9, width = 16, dpi = 400)
-
-
-
-# USING BRETT'S CODE????-------
+#     height = 9, width = 16, dpi = 400)
 
 
 
