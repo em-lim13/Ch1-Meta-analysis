@@ -27,7 +27,8 @@ meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
   mutate(sd_treatment = replace_na(sd_treatment, 999),
          sd_control = replace_na(sd_control, 999)) %>%
   mutate(sd_treatment = ifelse(sd_treatment == 999, se_treatment*sqrt(treatment_n), sd_treatment),
-         sd_control = ifelse(sd_control == 999, se_control*sqrt(control_n), sd_control))
+         sd_control = ifelse(sd_control == 999, se_control*sqrt(control_n), sd_control),
+         natural = as.factor(natural))
 
 ##### I think I need to manually exclude the negative means because it's still calculating effect sizes for those
 meta_no_neg <- meta_full %>%
@@ -184,7 +185,7 @@ anova(model_control, model_chla)
 # Multilevel models ------
 # There is a special way through which we can tell rma.mv to assume such nested random effects. We do this using a slash (/) to separate the higher- and lower-level grouping variable. To the left of /, we put in the level 3 (cluster) variable. To the right, we insert the lower-order variable nested in the larger cluster. Therefore, the general structure of the formula looks like this: ~ 1 | cluster/effects_within_cluster
 
-# Lets look at latitude first
+# Lets look at latitude first ----
 model_lat_paper <- rma.mv(yi = yi,
               V = vi,
               slab = author,
@@ -217,8 +218,11 @@ ggplot(lat_effect_sum, aes(y = climate, x = effect, xmin = ci.lb, xmax = ci.ub))
   theme_classic() +
   labs(x = "Effect size (ROM)", y = "Climate zone")
 
+#ggsave("Output/Figures/effects_lat", device = "png",
+#      height = 9, width = 16, dpi = 400)
 
-# Now try with chl a
+
+# Now try with chl a -----
 model_chla_paper <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
@@ -255,11 +259,57 @@ ggplot(chla_effect_sum, aes(y = chla_bin, x = effect, xmin = ci.lb, xmax = ci.ub
   theme_classic() +
   labs(x = "Effect size (ROM)", y = "Chlorophyll a")
 
+#ggsave("Output/Figures/effects_chla", device = "png",
+#      height = 9, width = 16, dpi = 400)
+
 # OK OK OK SO LOWER CHL A HAS A HIGHER EFFECT!!!!! WOOOOOOOW
 
 
 # do a permutation test to make sure we haven't overfit the model 
 #permutest(model_chla_paper)
+
+# How about natural-ness of experiment -----
+model_nat_paper <- rma.mv(yi = yi,
+                           V = vi,
+                           slab = author,
+                           data = meta_final,
+                           method = "REML",
+                           mods = ~ natural,
+                           random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                           test = "t")
+
+summary(model_nat_paper)
+# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
+# p-value is 0.0267 so yes, there is a difference!
+# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
+
+# Pull coefficient estimates so I can graph them
+intercept_nat <- coef(summary(model_nat_paper))[1,1] # extract the intercept
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+
+# edit bin labels
+nat_effect_sum <- coef(summary(model_nat_paper)) %>%
+  mutate(nat_bin = factor(c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm"),
+                           levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")),
+         effect = ifelse(nat_bin != "Field: unstocked", estimate + intercept_nat,
+                         intercept_nat),
+         ci.lb = ifelse(nat_bin != "Field: unstocked", ci.lb + intercept_nat,
+                        ci.lb),
+         ci.ub = ifelse(nat_bin != "Field: unstocked", ci.ub + intercept_nat,
+                        ci.ub)) # add intercept to other coefficients
+
+# GRAPH THIS?
+ggplot(nat_effect_sum, aes(y = nat_bin, x = effect, xmin = ci.lb, xmax = ci.ub)) +
+  geom_point() +
+  geom_errorbar(height = .1) +
+  geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5) +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = " ")
+
+#ggsave("Output/Figures/effects_nat", device = "png",
+ #     height = 9, width = 16, dpi = 400)
+
 
 
 # USING BRETT'S CODE????-------
