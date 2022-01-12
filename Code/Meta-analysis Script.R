@@ -238,8 +238,8 @@ ggplot(lat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, co
   theme_black()+ 
   theme(legend.position = "none")
 
-#ggsave("Output/Figures/effects_lat", device = "png",
-#      height = 9, width = 16, dpi = 400)
+ggsave("Output/Figures/effects_lat", device = "png",
+      height = 9, width = 16, dpi = 400)
 
 
 # Now try with chl a -----
