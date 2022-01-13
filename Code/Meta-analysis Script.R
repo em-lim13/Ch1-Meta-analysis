@@ -13,6 +13,7 @@ library(visreg)
 library(metafor)
 library(esc)
 
+source(file = "Code/theme_black_code.R")
 
 #In the first case, object x is a fitted model object coming from the rma.uni, rma.mh, or rma.peto functions. The corresponding method is then forest.rma.
 
@@ -28,7 +29,16 @@ meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
          sd_control = replace_na(sd_control, 999)) %>%
   mutate(sd_treatment = ifelse(sd_treatment == 999, se_treatment*sqrt(treatment_n), sd_treatment),
          sd_control = ifelse(sd_control == 999, se_control*sqrt(control_n), sd_control),
-         natural = as.factor(natural))
+         natural = as.factor(natural),
+         abs_lat = abs(lat_dec),
+         climate2 = factor(ifelse(abs_lat <= 23.5, "Tropics",
+                           ifelse(abs_lat <= 40, "Subtropics",
+                                  ifelse(abs_lat <= 60, "Temperate",
+                                         "Polar"))),
+         levels = c("Tropics", "Subtropics", "Temperate", "Polar")))
+
+ggplot(meta_full, aes(climate2, lat_dec, colour = climate2)) +
+  geom_jitter()
 
 ##### I think I need to manually exclude the negative means because it's still calculating effect sizes for those
 meta_no_neg <- meta_full %>%
@@ -49,7 +59,13 @@ meta_reduced <- meta_full %>%
 
 
 # Load papers that I can't use but that mostly pass the criteria
-meta_rejected <- read_csv("Output/Data/rejected_papers.csv")
+meta_rejected <- read_csv("Output/Data/rejected_papers.csv") %>%
+  mutate(abs_lat = abs(lat_dec),
+         climate2 = factor(ifelse(abs_lat <= 23.5, "Tropics",
+                                  ifelse(abs_lat <= 40, "Subtropics",
+                                         ifelse(abs_lat <= 60, "Temperate",
+                                                "Polar"))),
+                           levels = c("Tropics", "Subtropics", "Temperate", "Polar")))
 
 meta_all_papers <- rbind(meta_reduced, meta_rejected) # df with all the papers I'm using and the papers I can't use but that still mostly meet the criteria
 
@@ -89,6 +105,7 @@ ggplot(meta_final, aes(chla_bin, chla_est)) +
 # Graphing --------
 # Make palette
 pal <- pnw_palette("Bay", 6)
+pal_star <- pnw_palette("Starfish", 5)
 
 climate_labs <- c("South Temperate", "South Subtropics", "Tropics", "North Subtropics", "North Temperate", "North Polar")
 
@@ -216,16 +233,20 @@ lat_n <- meta_final %>%
 lat_effect_sum <- coef(summary(model_lat_paper)) %>%
   mutate(climate = factor(c("ST", "SST", "T", "NST", "NT", "NP"),
                            levels = c("ST", "SST", "T", "NST", "NT", "NP")),
-         effect = ifelse(climate != "Very low", estimate + intercept_lat,
-                         intercept_lat)) %>% # add intercept to other coefficients
+         effect = ifelse(climate != "ST", estimate + intercept_lat,
+                         intercept_lat),
+         ci.lb = ifelse(climate != "ST", ci.lb + intercept_lat,
+                        ci.lb),
+         ci.ub = ifelse(climate != "ST", ci.ub + intercept_lat,
+                        ci.ub)) %>%# add intercept to other coefficients
   left_join(lat_n, by = "climate")
 
 # GRAPH THIS
 n_labs_lat <- c("n = 5", "n = 5", "n = 51", "n = 32", "n = 79", "n = 2")
 
 ggplot(lat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate)) +
-  geom_point() +
-  geom_errorbar() +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
   geom_vline(xintercept=0, color="white", linetype="dashed") +
   theme_classic() +
   labs(x = "Effect size (ROM)", y = "Climate zone") +
@@ -240,6 +261,66 @@ ggplot(lat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, co
 
 #ggsave("Output/Figures/effects_lat", device = "png",
 #      height = 9, width = 16, dpi = 400)
+
+# Try using the 4 climate zones instead ----
+model_climate_paper <- rma.mv(yi = yi,
+                          V = vi,
+                          slab = author,
+                          data = meta_final,
+                          method = "REML",
+                          mods = ~ climate2,
+                          random = ~ 1 | paper_num/indiv, 
+                          test = "t")
+
+summary(model_climate_paper)
+# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
+# p-value is 0.5371 so NO, there is NO difference!
+# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
+
+# # Pull coefficient estimates so I can graph them
+intercept_cli <- coef(summary(model_climate_paper))[1,1] # extract the intercept
+
+# How many papers in each bin?
+cli_n <- meta_final %>%
+  group_by(climate2) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:4)
+
+# Now pull the rest of the coefficients, add a column for climate, and adjust the estimates to reflect the estimated effect sizes
+cli_effect_sum <- coef(summary(model_climate_paper)) %>%
+  mutate(climate2 = factor(c("Tropics", "Subtropics", "Temperate", "Polar"),
+                          levels = c("Tropics", "Subtropics", "Temperate", "Polar")),
+         effect = ifelse(climate2 != "Tropics", estimate + intercept_cli,
+                         intercept_cli),
+         ci.lb = ifelse(climate2 != "Tropics", ci.lb + intercept_cli,
+                        ci.lb),
+         ci.ub = ifelse(climate2 != "Tropics", ci.ub + intercept_cli,
+                        ci.ub)) %>% # add intercept to other coefficients
+  left_join(cli_n, by = "climate2")
+
+
+# GRAPH THIS
+n_labs_cli <- c("n = 33", "n = 65", "n = 74", "n = 2")
+cli_labs <- c("Tropics", "Subtropics", "Temperate", "Polar")
+
+ggplot(cli_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate2)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = "Climate zone") +
+  scale_y_continuous(breaks = 1:length(cli_labs),
+                     labels = cli_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(n_labs_cli),
+                                         labels = n_labs_cli)) +
+  scale_colour_manual(values = rev(pal))  +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+#ggsave("Output/Figures/effects_climate", device = "png",
+#      height = 9, width = 16, dpi = 400)
+
 
 
 # Now try with chl a -----
@@ -283,17 +364,20 @@ chla_effect_sum <- coef(summary(model_chla_paper)) %>%
 chla_bin_labs <- c("Very low", "Low", "Medium", "High", "Very high")
 n_labs_chla <- c("n = 111", "n = 30", "n = 7", "n = 6", "n = 20")
 
-ggplot(chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub)) +
-  geom_point() +
-  geom_errorbar(height = .1) +
-  geom_vline(xintercept = 0, color="black", linetype="dashed", alpha=.5) +
+ggplot(chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = chla_bin)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept = 0, color="white", linetype="dashed", alpha=.5) +
   theme_classic() +
   labs(x = "Effect size (ROM)", y = "Chlorophyll a") +
   scale_y_continuous(breaks = 1:length(chla_bin_labs),
                      labels = chla_bin_labs,
                      sec.axis = sec_axis(~.,
                                          breaks = 1:length(n_labs_chla),
-                                         labels = n_labs_chla))
+                                         labels = n_labs_chla)) +
+  scale_color_brewer(palette = 'Greens') +
+  theme_black()+ 
+  theme(legend.position = "none")
   
 
 #ggsave("Output/Figures/effects_chla", device = "png",
@@ -350,9 +434,9 @@ nat_labs <- c("Field: unstocked", "Field: PP stocked", "Field: animals stocked",
 
 nat_n_labs <- c("n = 72", "n = 14", "n = 16", "n = 10", "n = 62")
 
-ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub)) +
-  geom_point() +
-  geom_errorbar(height = .1) +
+ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = nat_bin)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
   geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5) +
   theme_classic() +
   labs(x = "Effect size (ROM)", y = " ") +
@@ -360,19 +444,91 @@ ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub)) +
                      labels = nat_labs,
                      sec.axis = sec_axis(~.,
                                          breaks = 1:length(nat_n_labs),
-                                         labels = nat_n_labs))
+                                         labels = nat_n_labs)) +
+  scale_colour_manual(values = rev(pal_star)) +
+  theme_black()+ 
+  theme(legend.position = "none")
 
 #ggsave("Output/Figures/effects_nat", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
+# Independence and Bias -------
 
+funnel.rma(model_lat_paper)
+funnel.rma(model_chla_paper)
+funnel.rma(model_nat_paper)
+# Yikes these plots do not look great
+
+fsn(yi = yi, vi = vi, data = meta_final, type="Rosenthal") #file drawer analysis (missing studies have an effect size = 0)
+# Fail-safe N: 35685
+# That seems like quite a large number?????
+
+# Compare corals to endosymbionts? -----
+corals <- meta_final %>% 
+  filter(pp_taxa == "Co" |pp_taxa == "En")
+
+model_coral <- rma.mv(yi = yi,
+                          V = vi,
+                          slab = author,
+                          data = corals,
+                          method = "REML",
+                          mods = ~ pp_taxa,
+                          random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                          test = "t")
+
+summary(model_coral)
+# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
+# p-value is 0.8314 so no, there's no diff between corals and endosymbionts
+# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
+
+# How many papers in each bin?
+coral_n <- corals %>%
+  group_by(pp_taxa) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:2,
+         pp_taxa = c("Coral", "Endosymbiont") )
+
+# Pull coefficient estimates so I can graph them
+intercept_coral <- coef(summary(model_coral))[1,1] # extract the intercept
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+
+# edit bin labels
+coral_effect_sum <- coef(summary(model_coral)) %>%
+  mutate(pp_taxa = factor(c("Coral", "Endosymbiont"),
+                          levels = c("Coral", "Endosymbiont")),
+         effect = ifelse(pp_taxa != "Coral", estimate + intercept_coral,
+                         intercept_coral),
+         ci.lb = ifelse(pp_taxa != "Coral", ci.lb + intercept_coral,
+                        ci.lb),
+         ci.ub = ifelse(pp_taxa != "Coral", ci.ub + intercept_coral,
+                        ci.ub)) %>% # add intercept to other coefficients
+  left_join(coral_n, by = "pp_taxa")
+
+# GRAPH THIS?
+coral_labs <- c("Coral", "Endosymbiont")
+
+coral_n_labs <- c("n = 28", "n = 8")
+
+ggplot(coral_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub)) +
+  geom_point() +
+  geom_errorbar(height = .1) +
+  geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5) +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = " ") +
+  scale_y_continuous(breaks = 1:length(coral_labs),
+                     labels = coral_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(coral_n_labs),
+                                         labels = coral_n_labs))
+# Ok so yeah basically the coral and endosymbionts aren't showing different effect sizes, the coral is just a tighter estimate, probably bc it has a larger n
 
 # CODE GRAVEYARD ---------
 # Old way to get shapefiles ------
 # Load chl a
-setwd("~/Downloads")
+#setwd("~/Downloads")
 raster_summer2004 <- raster("Data/Rasters/A20041732004264.L3m_SNSU_CHL_chlor_a_4km.nc")
-setwd("~/Documents/MSc/Ch2-Meta-analysis")
+#setwd("~/Documents/MSc/Ch2-Meta-analysis")
 
 # make a df for this one season / year
 meta_summer2004 <- meta %>%
