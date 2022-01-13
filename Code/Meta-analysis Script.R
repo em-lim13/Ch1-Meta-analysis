@@ -23,6 +23,7 @@ source(file = "Code/theme_black_code.R")
 
 
 # Load data
+# And do a million manipulations......
 meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
   mutate(climate_zone = factor(climate_zone, levels = c("ST", "SST", "T", "NST", "NT", "NP"))) %>%
   mutate(sd_treatment = replace_na(sd_treatment, 999),
@@ -35,10 +36,12 @@ meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
                            ifelse(abs_lat <= 40, "Subtropics",
                                   ifelse(abs_lat <= 60, "Temperate",
                                          "Polar"))),
-         levels = c("Tropics", "Subtropics", "Temperate", "Polar")))
+         levels = c("Tropics", "Subtropics", "Temperate", "Polar")),
+         c_activity = ifelse(c_taxa == "Bi" | c_taxa == "F", "Vertebrate",
+                        ifelse(c_taxa == "SP" | c_taxa == "B" | c_taxa == "SI", "Sessile Invert", "Mobile Invert")),
+         c_activity = factor(c_activity, levels = c("Vertebrate", "Mobile Invert", "Sessile Invert")),
+         c_taxa = factor(c_taxa, levels = c("Bi", "F", "Cr", "E", "G", "MI", "B", "SP", "SI")))
 
-ggplot(meta_full, aes(climate2, lat_dec, colour = climate2)) +
-  geom_jitter()
 
 ##### I think I need to manually exclude the negative means because it's still calculating effect sizes for those
 meta_no_neg <- meta_full %>%
@@ -65,9 +68,12 @@ meta_rejected <- read_csv("Output/Data/rejected_papers.csv") %>%
                                   ifelse(abs_lat <= 40, "Subtropics",
                                          ifelse(abs_lat <= 60, "Temperate",
                                                 "Polar"))),
-                           levels = c("Tropics", "Subtropics", "Temperate", "Polar")))
+                           levels = c("Tropics", "Subtropics", "Temperate", "Polar"))) %>%
+  select(author, title, year, lat_dec, long_dec, climate_zone, climate2)
 
-meta_all_papers <- rbind(meta_reduced, meta_rejected) # df with all the papers I'm using and the papers I can't use but that still mostly meet the criteria
+meta_all_papers <- meta_reduced %>%
+  select(author, title, year, lat_dec, long_dec, climate_zone, climate2) %>%
+  rbind(meta_rejected) # df with all the papers I'm using and the papers I can't use but that still mostly meet the criteria
 
 # Add chla data to orig meta dataframe  -------
 # this file was writted in the Chla_extraction.R code file
@@ -105,6 +111,7 @@ ggplot(meta_final, aes(chla_bin, chla_est)) +
 # Graphing --------
 # Make palette
 pal <- pnw_palette("Bay", 6)
+pal2 <- pnw_palette("Bay", 4)
 pal_star <- pnw_palette("Starfish", 5)
 
 climate_labs <- c("South Temperate", "South Subtropics", "Tropics", "North Subtropics", "North Temperate", "North Polar")
@@ -131,7 +138,6 @@ ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
   theme_black() +
   ylim(c(-75, 75))
 
-
 #ggsave("Output/Figures/response_lat", device = "png",
 #       height = 9, width = 16, dpi = 400)
 
@@ -149,7 +155,7 @@ ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
 
 # GRAPHING CHL A
 ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
-  geom_point()+
+  geom_jitter()+
   scale_colour_manual(values = rev(pal), labels = climate_labs) +
   labs(y = "Latitude", x = "Chlorophyll a (mg/m^2)") + 
   theme_black() + 
@@ -163,6 +169,47 @@ ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
 ggplot(meta_final, aes(chla_est, yi)) +
   geom_point() +
   geom_smooth(method = lm)
+
+# take a look at the distribution of primary producers across latitudes
+ggplot(meta_final, aes(pp_taxa, climate_zone, colour = pp_taxa)) +
+  geom_jitter(size = 4) +
+  theme_black() +
+  theme(legend.position = "none") +
+  labs(x = "Primary Producer", y = "Climate Zone") +
+  scale_y_discrete(labels = climate_labs) +
+  scale_x_discrete(labels = c("Calcareous algae", "Coral", "Endosymbiont", "Fleshy Algae", "Mangrove", "Phytoplankton", "Seagrass")) +
+  theme(axis.text.x = element_text(angle = 30))
+  
+# take a look at the distribution of consumers across latitudes
+ggplot(meta_final, aes(c_taxa, climate_zone, colour = c_taxa)) +
+  geom_jitter(size = 4) +
+  theme_black() +
+  theme(legend.position = "none") +
+  labs(x = "Consumer", y = "Climate Zone") +
+  scale_y_discrete(labels = climate_labs) +
+  scale_x_discrete(labels = c("Birds", "Fish", "Crustaceans", "Echinoderms", "Gastropods", "Misc mobile inverts", "Bivalves", "Sponges", "Misc sessile inverts")) +
+  theme(axis.text.x = element_text(angle = 30))
+
+# look at consumer groups
+ggplot(meta_final, aes(c_activity, climate_zone, colour = c_activity)) +
+  geom_jitter(size = 4) +
+  theme_black() +
+  theme(legend.position = "none") +
+  labs(x = "Consumer Activity Level", y = "Climate Zone") +
+  scale_y_discrete(labels = climate_labs)
+
+# Look at consumers vs pp??
+ggplot(meta_final, aes(c_taxa, pp_taxa, colour = climate2)) +
+  geom_jitter(size = 4) +
+  theme_bw() +
+  labs(x = "Consumer Taxa", y = "Primary Producer Taxa", colour = "Climate") +
+  scale_x_discrete(labels = c("Birds", "Fish", "Crustaceans", "Echinoderms", "Gastropods", "Misc mobile inverts", "Bivalves", "Sponges", "Misc sessile inverts"))+
+  theme(axis.text.x = element_text(angle = 30)) +
+  scale_y_discrete(labels = c("Calcareous algae", "Coral", "Endosymbiont", "Fleshy Algae", "Mangrove", "Phytoplankton", "Seagrass")) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18)) +
+  scale_colour_manual(values = rev(pal2))
+  
 
 # stats???------
 
@@ -367,7 +414,7 @@ n_labs_chla <- c("n = 111", "n = 30", "n = 7", "n = 6", "n = 20")
 ggplot(chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = chla_bin)) +
   geom_point(size = 6) +
   geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept = 0, color="white", linetype="dashed", alpha=.5) +
+  geom_vline(xintercept = 0, color="white", linetype="dashed") +
   theme_classic() +
   labs(x = "Effect size (ROM)", y = "Chlorophyll a") +
   scale_y_continuous(breaks = 1:length(chla_bin_labs),
@@ -437,7 +484,7 @@ nat_n_labs <- c("n = 72", "n = 14", "n = 16", "n = 10", "n = 62")
 ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = nat_bin)) +
   geom_point(size = 6) +
   geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5) +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
   theme_classic() +
   labs(x = "Effect size (ROM)", y = " ") +
   scale_y_continuous(breaks = 1:length(nat_labs),
@@ -451,6 +498,69 @@ ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, co
 
 #ggsave("Output/Figures/effects_nat", device = "png",
 #     height = 9, width = 16, dpi = 400)
+
+# How about consumer activity level -----
+model_act_paper <- rma.mv(yi = yi,
+                          V = vi,
+                          slab = author,
+                          data = meta_final,
+                          method = "REML",
+                          mods = ~ c_activity,
+                          random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                          test = "t")
+
+summary(model_act_paper)
+# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
+# p-value is 0.4606 so no, there is no difference!
+# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
+
+# How many papers in each bin?
+act_n <- meta_final %>%
+  group_by(c_activity) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:3)
+
+# Pull coefficient estimates so I can graph them
+intercept_act <- coef(summary(model_act_paper))[1,1] # extract the intercept
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+
+act_effect_sum <- coef(summary(model_act_paper)) %>%
+  mutate(c_activity = factor(c("Vertebrate", "Mobile Invert", "Sessile Invert"),
+                          levels = c("Vertebrate", "Mobile Invert", "Sessile Invert")),
+         effect = ifelse(c_activity != "Vertebrate", estimate + intercept_act,
+                         intercept_act),
+         ci.lb = ifelse(c_activity != "Vertebrate", ci.lb + intercept_act,
+                        ci.lb),
+         ci.ub = ifelse(c_activity != "Vertebrate", ci.ub + intercept_act,
+                        ci.ub)) %>% # add intercept to other coefficients
+  left_join(act_n, by = "c_activity")
+
+# GRAPH THIS?
+act_labs <- c("Vertebrate", "Mobile Invert", "Sessile Invert")
+
+act_n_labs <- c("n = 46", "n = 21", "n = 107")
+
+ggplot(act_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = c_activity)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = " ") +
+  scale_y_continuous(breaks = 1:length(act_labs),
+                     labels = act_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(act_n_labs),
+                                         labels = act_n_labs)) +
+  scale_colour_manual(values = rev(pal_star)) +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+#ggsave("Output/Figures/effects_act", device = "png",
+#     height = 9, width = 16, dpi = 400)
+
+
+# I feel like at some point I will have to address the differences between the tropical taxons and the temperate taxons
 
 # Independence and Bias -------
 
