@@ -25,21 +25,21 @@ source(file = "Code/theme_black_code.R")
 # Load data
 # And do a million manipulations......
 meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
-  mutate(sd_treatment = replace_na(sd_treatment, 999),
-         sd_control = replace_na(sd_control, 999)) %>%
-  mutate(sd_treatment = ifelse(sd_treatment == 999, se_treatment*sqrt(treatment_n), sd_treatment),
-         sd_control = ifelse(sd_control == 999, se_control*sqrt(control_n), sd_control),
+  mutate(sd_treatment = replace_na(sd_treatment, 999), # assigning a dummy to replace
+         sd_control = replace_na(sd_control, 999)) %>% # assigning a dummy to replace
+  mutate(sd_treatment = ifelse(sd_treatment == 999, se_treatment*sqrt(treatment_n), sd_treatment), # replacing that dummy with the estimated SD
+         sd_control = ifelse(sd_control == 999, se_control*sqrt(control_n), sd_control),# replacing that dummy with the estimated SE
          natural = as.factor(natural),
-         abs_lat = abs(lat_dec),
+         abs_lat = abs(lat_dec), # creating an absolute value lat
          climate2 = factor(ifelse(abs_lat <= 23.45, "Tropics",
                            ifelse(abs_lat <= 40, "Subtropics",
                                   ifelse(abs_lat <= 60, "Temperate",
                                          "Polar"))),
-         levels = c("Tropics", "Subtropics", "Temperate", "Polar")),
+         levels = c("Tropics", "Subtropics", "Temperate", "Polar")), # New column where I don't distingiush between North subtropics/temperates and South subtropics/temperates
          c_activity = ifelse(c_taxa == "Bi" | c_taxa == "F", "Vertebrate",
                         ifelse(c_taxa == "SP" | c_taxa == "B" | c_taxa == "SI", "Sessile Invert", "Mobile Invert")),
-         c_activity = factor(c_activity, levels = c("Vertebrate", "Mobile Invert", "Sessile Invert")),
-         c_taxa = factor(c_taxa, levels = c("Bi", "F", "Cr", "E", "G", "MI", "B", "SP", "SI")),
+         c_activity = factor(c_activity, levels = c("Vertebrate", "Mobile Invert", "Sessile Invert")), # activity levels for consumers
+         c_taxa = factor(c_taxa, levels = c("Bi", "F", "Cr", "E", "G", "MI", "B", "SP", "SI")), # reorder c_taxa
          climate_zone = factor(ifelse(lat_dec >= 66.5, "NP",
                                       ifelse(lat_dec >= 35, "NT",
                                       ifelse(lat_dec >= 23.45, "NST",
@@ -47,7 +47,10 @@ meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
                                       ifelse(lat_dec >= -35, "SST",
                                       ifelse(lat_dec >= -66.5, "ST",
                                              "SP")))))), 
-                                levels = c("ST", "SST", "T", "NST", "NT", "NP") ))
+                                levels = c("ST", "SST", "T", "NST", "NT", "NP"))) # assign climate zones based on a code, makes it easier and less prone to mistakes
+# using 23.45 as the cut off bc that's between the cancer and capricorn?
+# Another paper set 23.5 - 23.5, and set temperete as 30-40
+
 
 
 ##### I think I need to manually exclude the negative means because it's still calculating effect sizes for those
