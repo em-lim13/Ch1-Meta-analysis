@@ -25,14 +25,13 @@ source(file = "Code/theme_black_code.R")
 # Load data
 # And do a million manipulations......
 meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
-  mutate(climate_zone = factor(climate_zone, levels = c("ST", "SST", "T", "NST", "NT", "NP"))) %>%
   mutate(sd_treatment = replace_na(sd_treatment, 999),
          sd_control = replace_na(sd_control, 999)) %>%
   mutate(sd_treatment = ifelse(sd_treatment == 999, se_treatment*sqrt(treatment_n), sd_treatment),
          sd_control = ifelse(sd_control == 999, se_control*sqrt(control_n), sd_control),
          natural = as.factor(natural),
          abs_lat = abs(lat_dec),
-         climate2 = factor(ifelse(abs_lat <= 23.5, "Tropics",
+         climate2 = factor(ifelse(abs_lat <= 23.45, "Tropics",
                            ifelse(abs_lat <= 40, "Subtropics",
                                   ifelse(abs_lat <= 60, "Temperate",
                                          "Polar"))),
@@ -40,7 +39,15 @@ meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
          c_activity = ifelse(c_taxa == "Bi" | c_taxa == "F", "Vertebrate",
                         ifelse(c_taxa == "SP" | c_taxa == "B" | c_taxa == "SI", "Sessile Invert", "Mobile Invert")),
          c_activity = factor(c_activity, levels = c("Vertebrate", "Mobile Invert", "Sessile Invert")),
-         c_taxa = factor(c_taxa, levels = c("Bi", "F", "Cr", "E", "G", "MI", "B", "SP", "SI")))
+         c_taxa = factor(c_taxa, levels = c("Bi", "F", "Cr", "E", "G", "MI", "B", "SP", "SI")),
+         climate_zone = factor(ifelse(lat_dec >= 66.5, "NP",
+                                      ifelse(lat_dec >= 35, "NT",
+                                      ifelse(lat_dec >= 23.45, "NST",
+                                      ifelse(lat_dec >= -23.45, "T",
+                                      ifelse(lat_dec >= -35, "SST",
+                                      ifelse(lat_dec >= -66.5, "ST",
+                                             "SP")))))), 
+                                levels = c("ST", "SST", "T", "NST", "NT", "NP") ))
 
 
 ##### I think I need to manually exclude the negative means because it's still calculating effect sizes for those
@@ -263,7 +270,7 @@ model_lat_paper <- rma.mv(yi = yi,
 
 summary(model_lat_paper)
 # Look at Test of Moderators to detemine whether there are significant differences between the subgroups
-# p-value is 0.9118 so NO, there is NO difference!
+# p-value is 0.9101 so NO, there is NO difference!
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
 # # Pull coefficient estimates so I can graph them
@@ -289,7 +296,7 @@ lat_effect_sum <- coef(summary(model_lat_paper)) %>%
   left_join(lat_n, by = "climate")
 
 # GRAPH THIS
-n_labs_lat <- c("n = 5", "n = 5", "n = 51", "n = 32", "n = 79", "n = 2")
+n_labs_lat <- c("n = 5", "n = 10", "n = 28", "n = 50", "n = 79", "n = 2")
 
 ggplot(lat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate)) +
   geom_point(size = 6) +
@@ -321,7 +328,7 @@ model_climate_paper <- rma.mv(yi = yi,
 
 summary(model_climate_paper)
 # Look at Test of Moderators to detemine whether there are significant differences between the subgroups
-# p-value is 0.5371 so NO, there is NO difference!
+# p-value is 0.6538 so NO, there is NO difference!
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
 # # Pull coefficient estimates so I can graph them
@@ -347,7 +354,7 @@ cli_effect_sum <- coef(summary(model_climate_paper)) %>%
 
 
 # GRAPH THIS
-n_labs_cli <- c("n = 33", "n = 65", "n = 74", "n = 2")
+n_labs_cli <- c("n = 28", "n = 70", "n = 74", "n = 2")
 cli_labs <- c("Tropics", "Subtropics", "Temperate", "Polar")
 
 ggplot(cli_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate2)) +
@@ -369,7 +376,6 @@ ggplot(cli_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, co
 #      height = 9, width = 16, dpi = 400)
 
 
-
 # Now try with chl a -----
 model_chla_paper <- rma.mv(yi = yi,
                           V = vi,
@@ -382,7 +388,7 @@ model_chla_paper <- rma.mv(yi = yi,
 
 summary(model_chla_paper)
 # Look at Test of Moderators to detemine whether there are significant differences between the subgroups
-# p-value is 0.0267 so yes, there is a difference!
+# p-value is 0.0148 so yes, there is a difference!
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
 # How many papers in each bin?
