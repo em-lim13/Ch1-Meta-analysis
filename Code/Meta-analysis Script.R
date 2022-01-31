@@ -113,10 +113,9 @@ meta_final <- meta %>%
                              ifelse(chla_est <= upper_bin3, "3", 
                                  ifelse(chla_est <= upper_bin4, "4", "5")))))
 
-# ggplot to make sure this worked
-ggplot(meta_final, aes(chla_bin, chla_est)) +
-  geom_point() # yay it worked
-
+ggplot(meta_final, aes(chla_bin, chla_est, colour = chla_bin)) +
+  geom_jitter() +
+  theme_classic()
 
 # Graphing --------
 # Make palette
@@ -154,7 +153,7 @@ ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
 
 ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
   geom_point(size = 3) +
-  scale_colour_manual(values = rev(pal), guide = FALSE) +
+  scale_colour_manual(values = rev(pal), guide = "none") +
   labs( y = "Lattitude", x = "Effect size", colour = "Climate Zone") + 
   geom_vline(xintercept = 0, linetype="dotted", colour = "white", size = 1.6) +
   theme_black()
@@ -457,7 +456,7 @@ model_nat_paper <- rma.mv(yi = yi,
 
 summary(model_nat_paper)
 # Look at Test of Moderators to detemine whether there are significant differences between the subgroups
-# p-value is 0.0267 so yes, there is a difference!
+# p-value is 0.3003 so no, there is no difference!
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
 # How many papers in each bin?
@@ -571,29 +570,19 @@ ggplot(act_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, co
 
 # I feel like at some point I will have to address the differences between the tropical taxons and the temperate taxons
 
-# Independence and Bias -------
-
-funnel.rma(model_lat_paper)
-funnel.rma(model_chla_paper)
-funnel.rma(model_nat_paper)
-# Yikes these plots do not look great
-
-fsn(yi = yi, vi = vi, data = meta_final, type="Rosenthal") #file drawer analysis (missing studies have an effect size = 0)
-# Fail-safe N: 35685
-# That seems like quite a large number?????
 
 # Compare corals to endosymbionts? -----
 corals <- meta_final %>% 
   filter(pp_taxa == "Co" |pp_taxa == "En")
 
 model_coral <- rma.mv(yi = yi,
-                          V = vi,
-                          slab = author,
-                          data = corals,
-                          method = "REML",
-                          mods = ~ pp_taxa,
-                          random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
-                          test = "t")
+                      V = vi,
+                      slab = author,
+                      data = corals,
+                      method = "REML",
+                      mods = ~ pp_taxa,
+                      random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                      test = "t")
 
 summary(model_coral)
 # Look at Test of Moderators to detemine whether there are significant differences between the subgroups
@@ -629,18 +618,451 @@ coral_labs <- c("Coral", "Endosymbiont")
 
 coral_n_labs <- c("n = 28", "n = 8")
 
-ggplot(coral_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub)) +
-  geom_point() +
-  geom_errorbar(height = .1) +
-  geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5) +
+ggplot(coral_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = pp_taxa)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed", alpha=.5) +
   theme_classic() +
   labs(x = "Effect size (ROM)", y = " ") +
   scale_y_continuous(breaks = 1:length(coral_labs),
                      labels = coral_labs,
                      sec.axis = sec_axis(~.,
                                          breaks = 1:length(coral_n_labs),
-                                         labels = coral_n_labs))
+                                         labels = coral_n_labs)) +
+  theme_black() +
+  theme(legend.position = "none")
 # Ok so yeah basically the coral and endosymbionts aren't showing different effect sizes, the coral is just a tighter estimate, probably bc it has a larger n
+
+
+# Independence and Bias -------
+
+funnel.rma(model_lat_paper)
+funnel.rma(model_chla_paper)
+funnel.rma(model_nat_paper)
+# A bit of a right skew
+
+fsn(yi = yi, vi = vi, data = meta_final, type="Rosenthal") #file drawer analysis (missing studies have an effect size = 0)
+# Fail-safe N: 35,685
+# That seems like quite a large number?????
+
+# Check for influential studies? ------
+
+# make a df where each row is a paper, and num_obs is the number of observations that paper contributed
+max_obs <- meta_final %>%
+  group_by(paper_num) %>%
+  dplyr::summarise(num_obs = as.numeric(n()))
+
+hist(max_obs$num_obs)
+
+# there's 174 data points
+# so 10% of that would be 17.4 observations per paper
+# so that would mean that paper # 17 and #23 and #31 have too many. try running things without those two
+
+# Ok so let's remove those papers and rerun the stats???
+
+meta_f <- meta_final %>%
+  filter(paper_num != 23)
+
+# What's the max and min chla value?
+max <- max(meta_f$chla_est) # 21.48487
+min<- min(meta_f$chla_est) # 0.05139377
+
+# How big should each bin be?
+bin_size <- max/5
+upper_bin1 <- bin_size
+upper_bin2 <- bin_size*2
+upper_bin3 <- bin_size*3
+upper_bin4 <- bin_size*4
+upper_bin5 <- bin_size*5
+
+meta_f <- meta_f %>%
+  mutate(chla_bin = ifelse(chla_est <= upper_bin1, "1",
+                           ifelse(chla_est <= upper_bin2, "2",
+                                  ifelse(chla_est <= upper_bin3, "3", 
+                                         ifelse(chla_est <= upper_bin4, "4", "5")))))
+
+
+# Rerun lat ----
+re_model_lat_paper <- rma.mv(yi = yi,
+                          V = vi,
+                          slab = author,
+                          data = meta_f,
+                          method = "REML",
+                          mods = ~ climate_zone,
+                          random = ~ 1 | paper_num/indiv, 
+                          test = "t")
+
+summary(re_model_lat_paper)
+# Removed # 17, p-value is 0.9187 versus 0.9101
+# Removed # 23, p-value is 0.8921 versus 0.9101
+# Removed # 23, p-value is 0.7748 versus 0.9101
+
+
+# # Pull coefficient estimates so I can graph them
+re_intercept_lat <- coef(summary(re_model_lat_paper))[1,1] # extract the intercept
+
+# How many papers in each bin?
+re_lat_n <- meta_f %>%
+  group_by(climate_zone) %>%
+  summarise(n = n()) %>%
+  rename(climate = climate_zone) %>%
+  mutate(dummy = 1:6)
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+re_lat_effect_sum <- coef(summary(re_model_lat_paper)) %>%
+  mutate(climate = factor(c("ST", "SST", "T", "NST", "NT", "NP"),
+                          levels = c("ST", "SST", "T", "NST", "NT", "NP")),
+         effect = ifelse(climate != "ST", estimate + re_intercept_lat,
+                         re_intercept_lat),
+         ci.lb = ifelse(climate != "ST", ci.lb + re_intercept_lat,
+                        ci.lb),
+         ci.ub = ifelse(climate != "ST", ci.ub + re_intercept_lat,
+                        ci.ub)) %>%# add intercept to other coefficients
+  left_join(re_lat_n, by = "climate")
+
+# GRAPH THIS
+re_n_labs_lat <- c("n = 5", "n = 10", "n = 28", "n = 33", "n = 42", "n = 2")
+
+ggplot(re_lat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = "Climate zone") +
+  scale_y_continuous(breaks = 1:length(climate_labs),
+                     labels = climate_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(re_n_labs_lat),
+                                         labels = re_n_labs_lat)) +
+  scale_colour_manual(values = rev(pal))  +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+# Removed # 17 all the bars still overlap O
+# Removed # 23 all the bars still overlap O
+# Removed # 31 all the bars still overlap O
+
+
+# Rerun with 4 climate zones  ----
+re_model_climate_paper <- rma.mv(yi = yi,
+                              V = vi,
+                              slab = author,
+                              data = meta_f,
+                              method = "REML",
+                              mods = ~ climate2,
+                              random = ~ 1 | paper_num/indiv, 
+                              test = "t")
+
+summary(re_model_climate_paper)
+# Removed # 17, p-value is 0.7605 versus 0.6538
+# Removed # 23, p-value is 0.7563 versus 0.6538
+# Removed # 31, p-value is 0.1750 versus 0.6538
+
+
+# # Pull coefficient estimates so I can graph them
+re_intercept_cli <- coef(summary(re_model_climate_paper))[1,1] # extract the intercept
+
+# How many papers in each bin?
+re_cli_n <- meta_f %>%
+  group_by(climate2) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:4)
+
+# Now pull the rest of the coefficients, add a column for climate, and adjust the estimates to reflect the estimated effect sizes
+re_cli_effect_sum <- coef(summary(re_model_climate_paper)) %>%
+  mutate(climate2 = factor(c("Tropics", "Subtropics", "Temperate", "Polar"),
+                           levels = c("Tropics", "Subtropics", "Temperate", "Polar")),
+         effect = ifelse(climate2 != "Tropics", estimate + re_intercept_cli,
+                         re_intercept_cli),
+         ci.lb = ifelse(climate2 != "Tropics", ci.lb + re_intercept_cli,
+                        ci.lb),
+         ci.ub = ifelse(climate2 != "Tropics", ci.ub + re_intercept_cli,
+                        ci.ub)) %>% # add intercept to other coefficients
+  left_join(re_cli_n, by = "climate2")
+
+
+# GRAPH THIS
+n_labs_cli <- c("n = 28", "n = 70", "n = 56", "n = 2")
+cli_labs <- c("Tropics", "Subtropics", "Temperate", "Polar")
+
+ggplot(re_cli_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate2)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = "Climate zone") +
+  scale_y_continuous(breaks = 1:length(cli_labs),
+                     labels = cli_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(n_labs_cli),
+                                         labels = n_labs_cli)) +
+  scale_colour_manual(values = rev(pal))  +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+# Tropics and subtropics still positive, temp still intercepts 0
+
+
+# Rerun chl a -----
+re_model_chla_paper <- rma.mv(yi = yi,
+                           V = vi,
+                           slab = author,
+                           data = meta_f,
+                           method = "REML",
+                           mods = ~ chla_bin,
+                           random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                           test = "t")
+
+summary(re_model_chla_paper)
+# Remove # 17 p-value is 0.0090 versus 0.0148 
+# Remove # 23 p-value is 0.0633 versus 0.0148 
+# Remove # 23 and don't change bins 0.0818 versus 0.0148 
+# Remove # 31 p-value is 0.0491 versus 0.0148 
+
+
+
+# How many papers in each bin?
+re_chla_n <- meta_f %>%
+  group_by(chla_bin) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:5,
+         chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high")))
+
+# Pull coefficient estimates so I can graph them
+re_intercept_chla <- coef(summary(re_model_chla_paper))[1,1] # extract the intercept
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+re_chla_effect_sum <- coef(summary(re_model_chla_paper)) %>%
+  mutate(chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high"),
+                           levels = c("Very low", "Low", "Medium", "High", "Very high")),
+         effect = ifelse(chla_bin != "Very low", estimate + re_intercept_chla,
+                         re_intercept_chla),
+         ci.lb = ifelse(chla_bin != "Very low", ci.lb + re_intercept_chla,
+                        ci.lb),
+         ci.ub = ifelse(chla_bin != "Very low", ci.ub + re_intercept_chla,
+                        ci.ub)) %>%# add intercept to other coefficients
+  left_join(re_chla_n, by = "chla_bin")
+
+# GRAPH THIS?
+chla_bin_labs <- c("Very low", "Low", "Medium", "High", "Very high")
+re_n_labs_chla <- c("n = 111", "n = 12", "n = 7", "n = 6", "n = 20")
+
+ggplot(re_chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = chla_bin)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept = 0, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = "Chlorophyll a") +
+  scale_y_continuous(breaks = 1:length(chla_bin_labs),
+                     labels = chla_bin_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(re_n_labs_chla),
+                                         labels = re_n_labs_chla)) +
+  scale_color_brewer(palette = 'Greens') +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+# Removed # 17 looks basically the same
+# Removed # 23 now the medium is positive, and the bins are different (bc removing 23 changes the bins bc it was the max chl a )
+# Removed # 23 didn't change bin sizes and the graph basically looks the same
+# Removed # 31 looks basically the same
+
+
+# When I remove all three chl a increases with chl a until we get to the high chl a and then it's a "bad" thing...
+# But pp in areas with lots of nutrients are theorized to have better uptake abilities
+# so maybe if there are medium-ish nutrients around, then the pp will have better uptake pathways so they can better take advantage of the extra pee in the water
+# 
+
+
+# Rerun natural-ness of experiment -----
+re_model_nat_paper <- rma.mv(yi = yi,
+                          V = vi,
+                          slab = author,
+                          data = meta_f,
+                          method = "REML",
+                          mods = ~ natural,
+                          random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                          test = "t")
+
+summary(re_model_nat_paper)
+
+# Remove # 17 p value is 0.2500 vs 0.3003 
+# Remove # 23 p value is 0.3453 vs 0.3003 
+# Remove # 23 p value is 0.3003 vs 0.1630 
+
+
+# How many papers in each bin?
+re_nat_n <- meta_f %>%
+  group_by(natural) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:5,
+         nat_bin = factor(c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm"),
+                          levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")))
+
+# Pull coefficient estimates so I can graph them
+re_intercept_nat <- coef(summary(re_model_nat_paper))[1,1] # extract the intercept
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+
+# edit bin labels
+re_nat_effect_sum <- coef(summary(re_model_nat_paper)) %>%
+  mutate(nat_bin = factor(c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm"),
+                          levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")),
+         effect = ifelse(nat_bin != "Field: unstocked", estimate + re_intercept_nat,
+                         re_intercept_nat),
+         ci.lb = ifelse(nat_bin != "Field: unstocked", ci.lb + re_intercept_nat,
+                        ci.lb),
+         ci.ub = ifelse(nat_bin != "Field: unstocked", ci.ub + re_intercept_nat,
+                        ci.ub)) %>% # add intercept to other coefficients
+  left_join(re_nat_n, by = "nat_bin")
+
+# GRAPH THIS?
+nat_labs <- c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")
+
+re_nat_n_labs <- c("n = 72", "n = 14", "n = 16", "n = 10", "n = 44")
+
+ggplot(re_nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = nat_bin)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = " ") +
+  scale_y_continuous(breaks = 1:length(nat_labs),
+                     labels = nat_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(re_nat_n_labs),
+                                         labels = re_nat_n_labs)) +
+  scale_colour_manual(values = rev(pal_star)) +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+# Removed # 17 basically the same, field unstocked now barely crosses 0
+# Removed # 23 basically the same
+# Removed # 31 basically the same
+
+# Rerun consumer activity level -----
+re_model_act_paper <- rma.mv(yi = yi,
+                          V = vi,
+                          slab = author,
+                          data = meta_f,
+                          method = "REML",
+                          mods = ~ c_activity,
+                          random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                          test = "t")
+
+summary(re_model_act_paper)
+# Removed # 17 p-value is 0.5830 vs 0.4606 
+# Removed # 23 p-value is 0.4606 vs 0.4606 
+# Removed # 31 p-value is 0.1156 vs 0.4606 
+
+
+# How many papers in each bin?
+re_act_n <- meta_f %>%
+  group_by(c_activity) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:3)
+
+# Pull coefficient estimates so I can graph them
+re_intercept_act <- coef(summary(re_model_act_paper))[1,1] # extract the intercept
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+
+re_act_effect_sum <- coef(summary(re_model_act_paper)) %>%
+  mutate(c_activity = factor(c("Vertebrate", "Mobile Invert", "Sessile Invert"),
+                             levels = c("Vertebrate", "Mobile Invert", "Sessile Invert")),
+         effect = ifelse(c_activity != "Vertebrate", estimate + re_intercept_act,
+                         re_intercept_act),
+         ci.lb = ifelse(c_activity != "Vertebrate", ci.lb + re_intercept_act,
+                        ci.lb),
+         ci.ub = ifelse(c_activity != "Vertebrate", ci.ub + re_intercept_act,
+                        ci.ub)) %>% # add intercept to other coefficients
+  left_join(re_act_n, by = "c_activity")
+
+# GRAPH THIS?
+act_labs <- c("Vertebrate", "Mobile Invert", "Sessile Invert")
+
+re_act_n_labs <- c("n = 46", "n = 21", "n = 89")
+
+ggplot(re_act_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = c_activity)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = " ") +
+  scale_y_continuous(breaks = 1:length(act_labs),
+                     labels = act_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(re_act_n_labs),
+                                         labels = re_act_n_labs)) +
+  scale_colour_manual(values = rev(pal_star)) +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+# Same when I remove # 17 and 23 and 31
+
+# Compare corals to endosymbionts? -----
+corals <- meta_final %>% 
+  filter(pp_taxa == "Co" |pp_taxa == "En")
+
+model_coral <- rma.mv(yi = yi,
+                      V = vi,
+                      slab = author,
+                      data = corals,
+                      method = "REML",
+                      mods = ~ pp_taxa,
+                      random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                      test = "t")
+
+summary(model_coral)
+# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
+# p-value is 0.8314 so no, there's no diff between corals and endosymbionts
+# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
+
+# How many papers in each bin?
+coral_n <- corals %>%
+  group_by(pp_taxa) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:2,
+         pp_taxa = c("Coral", "Endosymbiont") )
+
+# Pull coefficient estimates so I can graph them
+intercept_coral <- coef(summary(model_coral))[1,1] # extract the intercept
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+
+# edit bin labels
+coral_effect_sum <- coef(summary(model_coral)) %>%
+  mutate(pp_taxa = factor(c("Coral", "Endosymbiont"),
+                          levels = c("Coral", "Endosymbiont")),
+         effect = ifelse(pp_taxa != "Coral", estimate + intercept_coral,
+                         intercept_coral),
+         ci.lb = ifelse(pp_taxa != "Coral", ci.lb + intercept_coral,
+                        ci.lb),
+         ci.ub = ifelse(pp_taxa != "Coral", ci.ub + intercept_coral,
+                        ci.ub)) %>% # add intercept to other coefficients
+  left_join(coral_n, by = "pp_taxa")
+
+# GRAPH THIS?
+coral_labs <- c("Coral", "Endosymbiont")
+
+coral_n_labs <- c("n = 28", "n = 8")
+
+ggplot(coral_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = pp_taxa)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed", alpha=.5) +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = " ") +
+  scale_y_continuous(breaks = 1:length(coral_labs),
+                     labels = coral_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(coral_n_labs),
+                                         labels = coral_n_labs)) +
+  theme_black() +
+  theme(legend.position = "none")
+# Ok so yeah basically the coral and endosymbionts aren't showing different effect sizes, the coral is just a tighter estimate, probably bc it has a larger n
+
+
 
 # CODE GRAVEYARD ---------
 # Old way to get shapefiles ------
