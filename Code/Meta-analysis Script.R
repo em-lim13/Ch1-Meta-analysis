@@ -51,20 +51,43 @@ meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
 # using 23.45 as the cut off bc that's between the cancer and capricorn?
 # Another paper set 23.5 - 23.5, and set temperete as 30-40
 
-
+# Calculate effect sizes -------
 
 ##### I think I need to manually exclude the negative means because it's still calculating effect sizes for those
 meta_no_neg <- meta_full %>%
-  filter(mean_control >= 0) %>%
-  filter(mean_treatment >= 0)
+  filter(mean_control > 0) %>%
+  filter(mean_treatment > 0)
+
+# We lose 5 rows when we remove 0's and 7 when we remove negatives (12 total)
+# should I switch to Hedges g????
+# Should I add like 0.0000000000001 to all the 0's?
+ # NO DO NOT DO THIS IT RUINS EVERYTHING EVERY STATISTICAL ANALYSIS BECOMES P = 0.99
+
+# Try calculating Hedges g 
+meta_g <- meta_full %>%
+  escalc(measure = "SMD", data = meta_no_neg,
+         m1i = mean_treatment, sd1i = sd_treatment, 
+         m2i = mean_control, sd2i = sd_control,
+         n1i = treatment_n, n2i = control_n) %>%
+  transmute(indiv = indiv,
+            effect_hedges_g = yi,
+            var_hedges_g = vi)
+
+# OK so when I use Hedges g for some reason chl a goes not significant. 
+# I think we should stick with ROM??? That's the effect size we initially chose
 
 meta <- meta_no_neg %>%
   escalc(measure = "ROM", data = meta_no_neg,
        m1i = mean_treatment, sd1i = sd_treatment, 
        m2i = mean_control, sd2i = sd_control,
-       n1i = treatment_n, n2i = control_n) 
+       n1i = treatment_n, n2i = control_n) %>%
 # ROM for log transformed ratio of means
 # log(treatment/control)
+  left_join(meta_g, by = "indiv")
+
+# Compare hedges g vs ROM
+ggplot(meta, aes(yi, effect_hedges_g)) +
+  geom_point()
 
 # Make a data frame where there's only one row for each paper to graph where the papers are from
 meta_reduced <- meta_full %>%
