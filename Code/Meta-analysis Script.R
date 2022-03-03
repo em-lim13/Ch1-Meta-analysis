@@ -13,6 +13,7 @@ library(lme4)
 library(visreg)
 library(metafor)
 library(esc)
+library(RColorBrewer)
 
 source(file = "Code/theme_black_code.R")
 
@@ -286,7 +287,10 @@ anova(model_control, model_chla)
 # Multilevel models ------
 # There is a special way through which we can tell rma.mv to assume such nested random effects. We do this using a slash (/) to separate the higher- and lower-level grouping variable. To the left of /, we put in the level 3 (cluster) variable. To the right, we insert the lower-order variable nested in the larger cluster. Therefore, the general structure of the formula looks like this: ~ 1 | cluster/effects_within_cluster
 
-# Lets look at latitude first ----
+# Latitude mulit level model ----
+
+# We are going to use the absolute value of latitude, because I have no reason to expect North temperate to vary from South temperate
+
 model_lat_paper <- rma.mv(yi = yi,
               V = vi,
               slab = author,
@@ -297,120 +301,59 @@ model_lat_paper <- rma.mv(yi = yi,
               test = "t")
 
 summary(model_lat_paper)
-# Ok looking at absolute lat instead
-# Will have to graph this again
-# Use these links:
-# https://wviechtb.github.io/metafor/reference/predict.rma.html
-# https://strengejacke.github.io/ggeffects/index.html
 
 # Look at Test of Moderators to determine whether there are significant differences between the subgroups
 # p-value is 0.2592 so NO, there is NO difference!
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
-# # Pull coefficient estimates so I can graph them
-intercept_lat <- coef(summary(model_lat_paper))[1,1] # extract the intercept
+# Graph lat ------
 
-# How many papers in each bin?
-lat_n <- meta_final %>%
-  group_by(climate_zone) %>%
-  summarise(n = n()) %>%
-  rename(climate = climate_zone) %>%
-  mutate(dummy = 1:6)
+# Use predict() to predict effect size for each abs lat
+# https://wviechtb.github.io/metafor/reference/predict.rma.html
 
-# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
-lat_effect_sum <- coef(summary(model_lat_paper)) %>%
-  mutate(climate = factor(c("ST", "SST", "T", "NST", "NT", "NP"),
-                           levels = c("ST", "SST", "T", "NST", "NT", "NP")),
-         effect = ifelse(climate != "ST", estimate + intercept_lat,
-                         intercept_lat),
-         ci.lb = ifelse(climate != "ST", ci.lb + intercept_lat,
-                        ci.lb),
-         ci.ub = ifelse(climate != "ST", ci.ub + intercept_lat,
-                        ci.ub)) %>%# add intercept to other coefficients
-  left_join(lat_n, by = "climate")
+# For random-effects models that were fitted with the rma.mv function, the model may actually include multiple 𝜏2 values (i.e., when the random argument includes an ‘~ inner | outer’ term and struct="HCS", struct="DIAG", struct="HAR", or struct="UN"). In that case, the function will provide prediction intervals for each level of the inner factor (since the prediction intervals differ depending on the 𝜏2 value)
 
-# GRAPH THIS
-n_labs_lat <- c("n = 5", "n = 10", "n = 28", "n = 50", "n = 79", "n = 2")
+# don't have to worry about tau2.levels and gamma2.levels arguments because I'm not using newmods, I'm just predicting the effects at the lat values from my input data
 
-ggplot(lat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="white", linetype="dashed") +
+lat_predict <- as.data.frame(predict(model_lat_paper, 
+                       addx=TRUE)) %>%
+  tibble::rownames_to_column("author") %>%
+  rename(abs_lat = X.abs_lat) 
+
+# pred = predicted value(s).
+# se = corresponding standard error(s).
+#ci.lb = lower bound of the confidence interval(s).
+#ci.ub = upper bound of the confidence interval(s).
+#pi.lb = lower bound of the prediction interval(s) (only for random/mixed-effects models).
+#pi.ub = upper bound of the prediction interval(s) (only for random/mixed-effects models).
+
+# Use ggeffects to graph these predicted values
+# https://strengejacke.github.io/ggeffects/index.html
+# geom line for predicted and geom ribbon for CI intervals
+
+# Create a palette
+# how many unique papers
+n <- length(unique(meta_final$paper_num))
+
+#combine the qualitative colour brewer palettes
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+
+# set seed because otherwise I'll get different colours each time
+set.seed(1235)
+
+# plot predicted values as line, jitter observed effect sizes
+ggplot() +
+  geom_line(data = lat_predict, aes(abs_lat, pred)) +
+  geom_jitter(data = meta_final, aes(abs_lat, yi, colour = author)) +
+  geom_ribbon(data = lat_predict, aes(abs_lat, pred, ymin = ci.lb, ymax = ci.ub), alpha = .1) +
   theme_classic() +
-  labs(x = "Effect size (ROM)", y = "Climate zone") +
-  scale_y_continuous(breaks = 1:length(climate_labs),
-    labels = climate_labs,
-    sec.axis = sec_axis(~.,
-                        breaks = 1:length(n_labs_lat),
-                        labels = n_labs_lat)) +
-  scale_colour_manual(values = rev(pal))  +
-  theme_black()+ 
-  theme(legend.position = "none")
-
-#ggsave("Output/Figures/effects_lat", device = "png",
-#      height = 9, width = 16, dpi = 400)
-
-# Try using the 4 climate zones instead ----
-model_climate_paper <- rma.mv(yi = yi,
-                          V = vi,
-                          slab = author,
-                          data = meta_final,
-                          method = "REML",
-                          mods = ~ climate2,
-                          random = ~ 1 | paper_num/indiv, 
-                          test = "t")
-
-summary(model_climate_paper)
-# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
-# p-value is 0.6538 so NO, there is NO difference!
-# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
-
-# # Pull coefficient estimates so I can graph them
-intercept_cli <- coef(summary(model_climate_paper))[1,1] # extract the intercept
-
-# How many papers in each bin?
-cli_n <- meta_final %>%
-  group_by(climate2) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:4)
-
-# Now pull the rest of the coefficients, add a column for climate, and adjust the estimates to reflect the estimated effect sizes
-cli_effect_sum <- coef(summary(model_climate_paper)) %>%
-  mutate(climate2 = factor(c("Tropics", "Subtropics", "Temperate", "Polar"),
-                          levels = c("Tropics", "Subtropics", "Temperate", "Polar")),
-         effect = ifelse(climate2 != "Tropics", estimate + intercept_cli,
-                         intercept_cli),
-         ci.lb = ifelse(climate2 != "Tropics", ci.lb + intercept_cli,
-                        ci.lb),
-         ci.ub = ifelse(climate2 != "Tropics", ci.ub + intercept_cli,
-                        ci.ub)) %>% # add intercept to other coefficients
-  left_join(cli_n, by = "climate2")
+  labs(x = "Absolute latitude", y = "Predicted Effect Size") +
+  theme(legend.position="none") +
+  scale_color_manual(values = sample(col_vector, n))
 
 
-# GRAPH THIS
-n_labs_cli <- c("n = 28", "n = 70", "n = 74", "n = 2")
-cli_labs <- c("Tropics", "Subtropics", "Temperate", "Polar")
-
-ggplot(cli_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate2)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="white", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size (ROM)", y = "Climate zone") +
-  scale_y_continuous(breaks = 1:length(cli_labs),
-                     labels = cli_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(n_labs_cli),
-                                         labels = n_labs_cli)) +
-  scale_colour_manual(values = rev(pal))  +
-  theme_black()+ 
-  theme(legend.position = "none")
-
-#ggsave("Output/Figures/effects_climate", device = "png",
-#      height = 9, width = 16, dpi = 400)
-
-
-# Now try with chl a -----
+# Chl a multi level models -----
 model_chla_paper_numeric <- rma.mv(yi = yi,
                                V = vi,
                                slab = author,
@@ -473,67 +416,28 @@ AIC(model_chla_paper_numeric, model_chla_paper_bin, model_chla_paper_log, model_
 
 # I could maybe log transform the predictor --> log(chl a)
 # Do this when you know that a predictor wouldn't increase the response forever (non linear)
-# Could try this and compare with AIC
 
-# How many papers in each bin?
-chla_n <- meta_final %>%
-  group_by(chla_bin) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:5,
-         chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high")))
+# OK I want to use chla_est
 
-# Pull coefficient estimates so I can graph them
-intercept_chla <- coef(summary(model_chla_paper_bin))[1,1] # extract the intercept
+# Graph chl a ------
+chla_predict <- as.data.frame(predict(model_chla_paper_est, 
+                                     addx=TRUE)) %>%
+  tibble::rownames_to_column("author") %>%
+  rename(chla_est = X.chla_est) 
 
-# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
-chla_effect_sum <- coef(summary(model_chla_paper_bin)) %>%
-  mutate(chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high"),
-         levels = c("Very low", "Low", "Medium", "High", "Very high")),
-         effect = ifelse(chla_bin != "Very low", estimate + intercept_chla,
-                         intercept_chla),
-         ci.lb = ifelse(chla_bin != "Very low", ci.lb + intercept_chla,
-                        ci.lb),
-         ci.ub = ifelse(chla_bin != "Very low", ci.ub + intercept_chla,
-                        ci.ub)) %>%# add intercept to other coefficients
-         left_join(chla_n, by = "chla_bin")
+# set seed because otherwise I'll get different colours each time
+set.seed(1235)
 
-# GRAPH THIS?
-chla_bin_labs <- c("Very low", "Low", "Medium", "High", "Very high")
-n_labs_chla <- c("n = 104", "n = 31", "n = 6", "n = 4", "n = 24")
-
-ggplot(chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = chla_bin)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept = 0, color="white", linetype="dashed") +
+# plot predicted values as line, jitter observed effect sizes
+ggplot() +
+  geom_line(data = chla_predict, aes(chla_est, pred)) +
+  geom_jitter(data = meta_final, aes(chla_est, yi, colour = author)) +
+  geom_ribbon(data = chla_predict, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub), alpha = .1) +
   theme_classic() +
-  labs(x = "Effect size (ROM)", y = "Chlorophyll a") +
-  scale_y_continuous(breaks = 1:length(chla_bin_labs),
-                     labels = chla_bin_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(n_labs_chla),
-                                         labels = n_labs_chla)) +
-  scale_color_brewer(palette = 'Greens') +
-  theme_black()+ 
-  theme(legend.position = "none")
+  labs(x = "Chl a estimate", y = "Predicted Effect Size") +
+  theme(legend.position="none") +
+  scale_color_manual(values = sample(col_vector, n))
 
-# try plotting effect vs chl est
-# make new df of chla est values, then use predict to figure out what model would predict for each
-# https://wviechtb.github.io/metafor/reference/predict.rma.html
-# geom line for predicted and geom ribbon for CI intervals
-# ggeffects is great, but won't work for this
-# but i can use it to plot 
-# https://strengejacke.github.io/ggeffects/index.html
-# but can use similar notation
-  
-
-#ggsave("Output/Figures/effects_chla", device = "png",
-#      height = 9, width = 16, dpi = 400)
-
-# OK OK OK SO LOWER CHL A HAS A HIGHER EFFECT!!!!! WOOOOOOOW
-
-
-# do a permutation test to make sure we haven't overfit the model 
-#permutest(model_chla_paper)
 
 # How about natural-ness of experiment -----
 model_nat_paper <- rma.mv(yi = yi,
@@ -1156,6 +1060,159 @@ ggplot(coral_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, 
 
 
 # CODE GRAVEYARD ---------
+
+# Plotting binned chla ---------
+# How many papers in each bin?
+chla_n <- meta_final %>%
+  group_by(chla_bin) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:5,
+         chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high")))
+
+# Pull coefficient estimates so I can graph them
+intercept_chla <- coef(summary(model_chla_paper_bin))[1,1] # extract the intercept
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+chla_effect_sum <- coef(summary(model_chla_paper_bin)) %>%
+  mutate(chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high"),
+                           levels = c("Very low", "Low", "Medium", "High", "Very high")),
+         effect = ifelse(chla_bin != "Very low", estimate + intercept_chla,
+                         intercept_chla),
+         ci.lb = ifelse(chla_bin != "Very low", ci.lb + intercept_chla,
+                        ci.lb),
+         ci.ub = ifelse(chla_bin != "Very low", ci.ub + intercept_chla,
+                        ci.ub)) %>%# add intercept to other coefficients
+  left_join(chla_n, by = "chla_bin")
+
+# GRAPH THIS?
+chla_bin_labs <- c("Very low", "Low", "Medium", "High", "Very high")
+n_labs_chla <- c("n = 104", "n = 31", "n = 6", "n = 4", "n = 24")
+
+ggplot(chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = chla_bin)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept = 0, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = "Chlorophyll a") +
+  scale_y_continuous(breaks = 1:length(chla_bin_labs),
+                     labels = chla_bin_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(n_labs_chla),
+                                         labels = n_labs_chla)) +
+  scale_color_brewer(palette = 'Greens') +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+
+#ggsave("Output/Figures/effects_chla", device = "png",
+#      height = 9, width = 16, dpi = 400)
+
+
+# Old graphing climate zones -------
+
+# # Pull coefficient estimates so I can graph them
+intercept_lat <- coef(summary(model_lat_paper))[1,1] # extract the intercept
+
+# How many papers in each bin?
+lat_n <- meta_final %>%
+  group_by(climate_zone) %>%
+  summarise(n = n()) %>%
+  rename(climate = climate_zone) %>%
+  mutate(dummy = 1:6)
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+lat_effect_sum <- coef(summary(model_lat_paper)) %>%
+  mutate(climate = factor(c("ST", "SST", "T", "NST", "NT", "NP"),
+                          levels = c("ST", "SST", "T", "NST", "NT", "NP")),
+         effect = ifelse(climate != "ST", estimate + intercept_lat,
+                         intercept_lat),
+         ci.lb = ifelse(climate != "ST", ci.lb + intercept_lat,
+                        ci.lb),
+         ci.ub = ifelse(climate != "ST", ci.ub + intercept_lat,
+                        ci.ub)) %>%# add intercept to other coefficients
+  left_join(lat_n, by = "climate")
+
+# GRAPH THIS
+n_labs_lat <- c("n = 5", "n = 10", "n = 28", "n = 50", "n = 79", "n = 2")
+
+ggplot(lat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = "Climate zone") +
+  scale_y_continuous(breaks = 1:length(climate_labs),
+                     labels = climate_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(n_labs_lat),
+                                         labels = n_labs_lat)) +
+  scale_colour_manual(values = rev(pal))  +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+#ggsave("Output/Figures/effects_lat", device = "png",
+#      height = 9, width = 16, dpi = 400)
+
+# # Try using the 4 climate zones and graph ----
+model_climate_paper <- rma.mv(yi = yi,
+                              V = vi,
+                              slab = author,
+                              data = meta_final,
+                              method = "REML",
+                              mods = ~ climate2,
+                              random = ~ 1 | paper_num/indiv, 
+                              test = "t")
+
+summary(model_climate_paper)
+# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
+# p-value is 0.6538 so NO, there is NO difference!
+# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
+
+# # Pull coefficient estimates so I can graph them
+intercept_cli <- coef(summary(model_climate_paper))[1,1] # extract the intercept
+
+# How many papers in each bin?
+cli_n <- meta_final %>%
+  group_by(climate2) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:4)
+
+# Now pull the rest of the coefficients, add a column for climate, and adjust the estimates to reflect the estimated effect sizes
+cli_effect_sum <- coef(summary(model_climate_paper)) %>%
+  mutate(climate2 = factor(c("Tropics", "Subtropics", "Temperate", "Polar"),
+                           levels = c("Tropics", "Subtropics", "Temperate", "Polar")),
+         effect = ifelse(climate2 != "Tropics", estimate + intercept_cli,
+                         intercept_cli),
+         ci.lb = ifelse(climate2 != "Tropics", ci.lb + intercept_cli,
+                        ci.lb),
+         ci.ub = ifelse(climate2 != "Tropics", ci.ub + intercept_cli,
+                        ci.ub)) %>% # add intercept to other coefficients
+  left_join(cli_n, by = "climate2")
+
+
+# GRAPH THIS
+n_labs_cli <- c("n = 28", "n = 70", "n = 74", "n = 2")
+cli_labs <- c("Tropics", "Subtropics", "Temperate", "Polar")
+
+ggplot(cli_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate2)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size (ROM)", y = "Climate zone") +
+  scale_y_continuous(breaks = 1:length(cli_labs),
+                     labels = cli_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(n_labs_cli),
+                                         labels = n_labs_cli)) +
+  scale_colour_manual(values = rev(pal))  +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+#ggsave("Output/Figures/effects_climate", device = "png",
+#      height = 9, width = 16, dpi = 400)
+
+
 # Old way to get shapefiles ------
 # Load chl a
 #setwd("~/Downloads")
