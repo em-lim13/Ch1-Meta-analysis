@@ -135,7 +135,9 @@ meta_final <- meta %>%
   mutate(chla_bin = ifelse(chla_est <= upper_bin1, "1",
                       ifelse(chla_est <= upper_bin2, "2",
                              ifelse(chla_est <= upper_bin3, "3", 
-                                 ifelse(chla_est <= upper_bin4, "4", "5")))))
+                                 ifelse(chla_est <= upper_bin4, "4", "5"))))) %>%
+  mutate(chla_log = log(chla_est),
+         chla_bin_num = as.numeric(chla_bin))
 
 ggplot(meta_final, aes(chla_bin, chla_est, colour = chla_bin)) +
   geom_jitter() +
@@ -199,7 +201,7 @@ ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
 #     height = 9, width = 16, dpi = 400)
 
 # chla vs effect size?
-ggplot(meta_final, aes(chla_est, yi)) +
+ggplot(meta_final, aes(chla_log, yi, colour = paper_num)) +
   geom_point() +
   geom_smooth(method = lm)
 
@@ -290,13 +292,19 @@ model_lat_paper <- rma.mv(yi = yi,
               slab = author,
               data = meta_final,
               method = "REML",
-              mods = ~ climate_zone,
+              mods = ~ abs_lat,
               random = ~ 1 | paper_num/indiv, 
               test = "t")
 
 summary(model_lat_paper)
-# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
-# p-value is 0.9101 so NO, there is NO difference!
+# Ok looking at absolute lat instead
+# Will have to graph this again
+# Use these links:
+# https://wviechtb.github.io/metafor/reference/predict.rma.html
+# https://strengejacke.github.io/ggeffects/index.html
+
+# Look at Test of Moderators to determine whether there are significant differences between the subgroups
+# p-value is 0.2592 so NO, there is NO difference!
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
 # # Pull coefficient estimates so I can graph them
@@ -403,7 +411,17 @@ ggplot(cli_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, co
 
 
 # Now try with chl a -----
-model_chla_paper <- rma.mv(yi = yi,
+model_chla_paper_numeric <- rma.mv(yi = yi,
+                               V = vi,
+                               slab = author,
+                               data = meta_final,
+                               method = "REML",
+                               mods = ~ chla_bin_num,
+                               random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                               test = "t")
+summary(model_chla_paper_numeric)
+
+model_chla_paper_bin <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
                           data = meta_final,
@@ -412,10 +430,50 @@ model_chla_paper <- rma.mv(yi = yi,
                           random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
                           test = "t")
 
-summary(model_chla_paper)
-# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
-# p-value is 0.0148 so yes, there is a difference!
-# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
+summary(model_chla_paper_bin)
+
+
+model_chla_paper_log <- rma.mv(yi = yi,
+                               V = vi,
+                               slab = author,
+                               data = meta_final,
+                               method = "REML",
+                               mods = ~ chla_log,
+                               random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                               test = "t")
+summary(model_chla_paper_log)
+
+model_chla_paper_est <- rma.mv(yi = yi,
+                               V = vi,
+                               slab = author,
+                               data = meta_final,
+                               method = "REML",
+                               mods = ~ chla_est,
+                               random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                               test = "t")
+
+summary(model_chla_paper_est)
+
+AIC(model_chla_paper_numeric, model_chla_paper_bin, model_chla_paper_log, model_chla_paper_est)
+# ok so interestingly the bins are the lowest AIC
+# sample sizes are super uneven
+# This is probably why the AIC is lower in the bins
+# Probably overfitting the bins with very few samples
+# Hannah says that as long as I justify what I did i might be ok
+# But she would be sketched out if she read that i binned
+# Hannah suggest going with the continuous chla est
+# That's her gut instinct
+
+
+# Basically Hannah says that the way it's currently coded, the model is just comparing each bin, but doesn't acknowledge that bins 1 and 2 are more similar than 1 and 5
+# Could go the ordinal route, might be conceptually ok but logistically challenging to interpret
+# links for that:
+# https://www.researchgate.net/publication/318745880_Regression_with_Ordered_Predictors_via_Ordinal_Smoothing_Splines
+# https://cran.r-project.org/web/packages/ordPens/ordPens.pdf
+
+# I could maybe log transform the predictor --> log(chl a)
+# Do this when you know that a predictor wouldn't increase the response forever (non linear)
+# Could try this and compare with AIC
 
 # How many papers in each bin?
 chla_n <- meta_final %>%
@@ -425,10 +483,10 @@ chla_n <- meta_final %>%
          chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high")))
 
 # Pull coefficient estimates so I can graph them
-intercept_chla <- coef(summary(model_chla_paper))[1,1] # extract the intercept
+intercept_chla <- coef(summary(model_chla_paper_bin))[1,1] # extract the intercept
 
 # Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
-chla_effect_sum <- coef(summary(model_chla_paper)) %>%
+chla_effect_sum <- coef(summary(model_chla_paper_bin)) %>%
   mutate(chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high"),
          levels = c("Very low", "Low", "Medium", "High", "Very high")),
          effect = ifelse(chla_bin != "Very low", estimate + intercept_chla,
@@ -441,7 +499,7 @@ chla_effect_sum <- coef(summary(model_chla_paper)) %>%
 
 # GRAPH THIS?
 chla_bin_labs <- c("Very low", "Low", "Medium", "High", "Very high")
-n_labs_chla <- c("n = 111", "n = 30", "n = 7", "n = 6", "n = 20")
+n_labs_chla <- c("n = 104", "n = 31", "n = 6", "n = 4", "n = 24")
 
 ggplot(chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = chla_bin)) +
   geom_point(size = 6) +
@@ -457,6 +515,15 @@ ggplot(chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, c
   scale_color_brewer(palette = 'Greens') +
   theme_black()+ 
   theme(legend.position = "none")
+
+# try plotting effect vs chl est
+# make new df of chla est values, then use predict to figure out what model would predict for each
+# https://wviechtb.github.io/metafor/reference/predict.rma.html
+# geom line for predicted and geom ribbon for CI intervals
+# ggeffects is great, but won't work for this
+# but i can use it to plot 
+# https://strengejacke.github.io/ggeffects/index.html
+# but can use similar notation
   
 
 #ggsave("Output/Figures/effects_chla", device = "png",
