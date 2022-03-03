@@ -287,7 +287,7 @@ anova(model_control, model_chla)
 # Multilevel models ------
 # There is a special way through which we can tell rma.mv to assume such nested random effects. We do this using a slash (/) to separate the higher- and lower-level grouping variable. To the left of /, we put in the level 3 (cluster) variable. To the right, we insert the lower-order variable nested in the larger cluster. Therefore, the general structure of the formula looks like this: ~ 1 | cluster/effects_within_cluster
 
-# Latitude mulit level model ----
+# Latitude mulitlevel model ----
 
 # We are going to use the absolute value of latitude, because I have no reason to expect North temperate to vary from South temperate
 
@@ -353,7 +353,7 @@ ggplot() +
   scale_color_manual(values = sample(col_vector, n))
 
 
-# Chl a multi level models -----
+# Chl a multilevel models -----
 model_chla_paper_numeric <- rma.mv(yi = yi,
                                V = vi,
                                slab = author,
@@ -439,7 +439,7 @@ ggplot() +
   scale_color_manual(values = sample(col_vector, n))
 
 
-# How about natural-ness of experiment -----
+# Natural-ness of experiment multilevel model-----
 model_nat_paper <- rma.mv(yi = yi,
                            V = vi,
                            slab = author,
@@ -502,7 +502,7 @@ ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, co
 #ggsave("Output/Figures/effects_nat", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
-# How about consumer activity level -----
+# Consumer activity level multilevel model -----
 model_act_paper <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
@@ -656,217 +656,40 @@ hist(max_obs$num_obs)
 # Ok so let's remove those papers and rerun the stats???
 
 meta_f <- meta_final %>%
-  filter(paper_num != 23)
-
-# What's the max and min chla value?
-max <- max(meta_f$chla_est) # 21.48487
-min<- min(meta_f$chla_est) # 0.05139377
-
-# How big should each bin be?
-bin_size <- max/5
-upper_bin1 <- bin_size
-upper_bin2 <- bin_size*2
-upper_bin3 <- bin_size*3
-upper_bin4 <- bin_size*4
-upper_bin5 <- bin_size*5
-
-meta_f <- meta_f %>%
-  mutate(chla_bin = ifelse(chla_est <= upper_bin1, "1",
-                           ifelse(chla_est <= upper_bin2, "2",
-                                  ifelse(chla_est <= upper_bin3, "3", 
-                                         ifelse(chla_est <= upper_bin4, "4", "5")))))
+  filter(paper_num != 31)
 
 
 # Rerun lat ----
-re_model_lat_paper <- rma.mv(yi = yi,
+model_lat_drop <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
                           data = meta_f,
                           method = "REML",
-                          mods = ~ climate_zone,
+                          mods = ~ abs_lat,
                           random = ~ 1 | paper_num/indiv, 
                           test = "t")
 
-summary(re_model_lat_paper)
-# Removed # 17, p-value is 0.9187 versus 0.9101
-# Removed # 23, p-value is 0.8921 versus 0.9101
-# Removed # 23, p-value is 0.7748 versus 0.9101
+summary(model_lat_drop)
 
-
-# # Pull coefficient estimates so I can graph them
-re_intercept_lat <- coef(summary(re_model_lat_paper))[1,1] # extract the intercept
-
-# How many papers in each bin?
-re_lat_n <- meta_f %>%
-  group_by(climate_zone) %>%
-  summarise(n = n()) %>%
-  rename(climate = climate_zone) %>%
-  mutate(dummy = 1:6)
-
-# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
-re_lat_effect_sum <- coef(summary(re_model_lat_paper)) %>%
-  mutate(climate = factor(c("ST", "SST", "T", "NST", "NT", "NP"),
-                          levels = c("ST", "SST", "T", "NST", "NT", "NP")),
-         effect = ifelse(climate != "ST", estimate + re_intercept_lat,
-                         re_intercept_lat),
-         ci.lb = ifelse(climate != "ST", ci.lb + re_intercept_lat,
-                        ci.lb),
-         ci.ub = ifelse(climate != "ST", ci.ub + re_intercept_lat,
-                        ci.ub)) %>%# add intercept to other coefficients
-  left_join(re_lat_n, by = "climate")
-
-# GRAPH THIS
-re_n_labs_lat <- c("n = 5", "n = 10", "n = 28", "n = 33", "n = 42", "n = 2")
-
-ggplot(re_lat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="white", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size (ROM)", y = "Climate zone") +
-  scale_y_continuous(breaks = 1:length(climate_labs),
-                     labels = climate_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(re_n_labs_lat),
-                                         labels = re_n_labs_lat)) +
-  scale_colour_manual(values = rev(pal))  +
-  theme_black()+ 
-  theme(legend.position = "none")
-
-# Removed # 17 all the bars still overlap O
-# Removed # 23 all the bars still overlap O
-# Removed # 31 all the bars still overlap O
-
-
-# Rerun with 4 climate zones  ----
-re_model_climate_paper <- rma.mv(yi = yi,
-                              V = vi,
-                              slab = author,
-                              data = meta_f,
-                              method = "REML",
-                              mods = ~ climate2,
-                              random = ~ 1 | paper_num/indiv, 
-                              test = "t")
-
-summary(re_model_climate_paper)
-# Removed # 17, p-value is 0.7605 versus 0.6538
-# Removed # 23, p-value is 0.7563 versus 0.6538
-# Removed # 31, p-value is 0.1750 versus 0.6538
-
-
-# # Pull coefficient estimates so I can graph them
-re_intercept_cli <- coef(summary(re_model_climate_paper))[1,1] # extract the intercept
-
-# How many papers in each bin?
-re_cli_n <- meta_f %>%
-  group_by(climate2) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:4)
-
-# Now pull the rest of the coefficients, add a column for climate, and adjust the estimates to reflect the estimated effect sizes
-re_cli_effect_sum <- coef(summary(re_model_climate_paper)) %>%
-  mutate(climate2 = factor(c("Tropics", "Subtropics", "Temperate", "Polar"),
-                           levels = c("Tropics", "Subtropics", "Temperate", "Polar")),
-         effect = ifelse(climate2 != "Tropics", estimate + re_intercept_cli,
-                         re_intercept_cli),
-         ci.lb = ifelse(climate2 != "Tropics", ci.lb + re_intercept_cli,
-                        ci.lb),
-         ci.ub = ifelse(climate2 != "Tropics", ci.ub + re_intercept_cli,
-                        ci.ub)) %>% # add intercept to other coefficients
-  left_join(re_cli_n, by = "climate2")
-
-
-# GRAPH THIS
-n_labs_cli <- c("n = 28", "n = 70", "n = 56", "n = 2")
-cli_labs <- c("Tropics", "Subtropics", "Temperate", "Polar")
-
-ggplot(re_cli_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate2)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="white", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size (ROM)", y = "Climate zone") +
-  scale_y_continuous(breaks = 1:length(cli_labs),
-                     labels = cli_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(n_labs_cli),
-                                         labels = n_labs_cli)) +
-  scale_colour_manual(values = rev(pal))  +
-  theme_black()+ 
-  theme(legend.position = "none")
-
-# Tropics and subtropics still positive, temp still intercepts 0
+# Removed # 17, p-value is 0.3459 versus 0.2592
+# Removed # 23, p-value is 0.7198 versus 0.2592
+# Removed # 31, p-value is 0.0613 versus 0.2592
 
 
 # Rerun chl a -----
-re_model_chla_paper <- rma.mv(yi = yi,
+model_chla_drop <- rma.mv(yi = yi,
                            V = vi,
                            slab = author,
                            data = meta_f,
                            method = "REML",
-                           mods = ~ chla_bin,
+                           mods = ~ chla_est,
                            random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
                            test = "t")
 
-summary(re_model_chla_paper)
-# Remove # 17 p-value is 0.0090 versus 0.0148 
-# Remove # 23 p-value is 0.0633 versus 0.0148 
-# Remove # 23 and don't change bins 0.0818 versus 0.0148 
-# Remove # 31 p-value is 0.0491 versus 0.0148 
-
-
-
-# How many papers in each bin?
-re_chla_n <- meta_f %>%
-  group_by(chla_bin) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:5,
-         chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high")))
-
-# Pull coefficient estimates so I can graph them
-re_intercept_chla <- coef(summary(re_model_chla_paper))[1,1] # extract the intercept
-
-# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
-re_chla_effect_sum <- coef(summary(re_model_chla_paper)) %>%
-  mutate(chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high"),
-                           levels = c("Very low", "Low", "Medium", "High", "Very high")),
-         effect = ifelse(chla_bin != "Very low", estimate + re_intercept_chla,
-                         re_intercept_chla),
-         ci.lb = ifelse(chla_bin != "Very low", ci.lb + re_intercept_chla,
-                        ci.lb),
-         ci.ub = ifelse(chla_bin != "Very low", ci.ub + re_intercept_chla,
-                        ci.ub)) %>%# add intercept to other coefficients
-  left_join(re_chla_n, by = "chla_bin")
-
-# GRAPH THIS?
-chla_bin_labs <- c("Very low", "Low", "Medium", "High", "Very high")
-re_n_labs_chla <- c("n = 111", "n = 12", "n = 7", "n = 6", "n = 20")
-
-ggplot(re_chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = chla_bin)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept = 0, color="white", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size (ROM)", y = "Chlorophyll a") +
-  scale_y_continuous(breaks = 1:length(chla_bin_labs),
-                     labels = chla_bin_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(re_n_labs_chla),
-                                         labels = re_n_labs_chla)) +
-  scale_color_brewer(palette = 'Greens') +
-  theme_black()+ 
-  theme(legend.position = "none")
-
-# Removed # 17 looks basically the same
-# Removed # 23 now the medium is positive, and the bins are different (bc removing 23 changes the bins bc it was the max chl a )
-# Removed # 23 didn't change bin sizes and the graph basically looks the same
-# Removed # 31 looks basically the same
-
-
-# When I remove all three chl a increases with chl a until we get to the high chl a and then it's a "bad" thing...
-# But pp in areas with lots of nutrients are theorized to have better uptake abilities
-# so maybe if there are medium-ish nutrients around, then the pp will have better uptake pathways so they can better take advantage of the extra pee in the water
-# 
+summary(model_chla_drop)
+# Remove # 17 p-value is 0.1639 versus 0.1065 
+# Remove # 23 p-value is 0.8172 versus 0.1065 
+# Remove # 31 p-value is 0.0593 versus 0.1065 
 
 
 # Rerun natural-ness of experiment -----
