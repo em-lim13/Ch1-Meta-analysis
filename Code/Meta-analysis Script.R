@@ -37,7 +37,7 @@ meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
                            ifelse(abs_lat <= 40, "Subtropics",
                                   ifelse(abs_lat <= 60, "Temperate",
                                          "Polar"))),
-         levels = c("Tropics", "Subtropics", "Temperate", "Polar")), # New column where I don't distingiush between North subtropics/temperates and South subtropics/temperates
+         levels = c("Tropics", "Subtropics", "Temperate", "Polar")), # New column where I don't distinguish between North subtropics/temperates and South subtropics/temperates
          c_activity = ifelse(c_taxa == "Bi" | c_taxa == "F", "Vertebrate",
                         ifelse(c_taxa == "SP" | c_taxa == "B" | c_taxa == "SI", "Sessile Invert", "Mobile Invert")),
          c_activity = factor(c_activity, levels = c("Vertebrate", "Mobile Invert", "Sessile Invert")), # activity levels for consumers
@@ -51,7 +51,7 @@ meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
                                              "SP")))))), 
                                 levels = c("ST", "SST", "T", "NST", "NT", "NP"))) # assign climate zones based on a code, makes it easier and less prone to mistakes
 # using 23.45 as the cut off bc that's between the cancer and capricorn?
-# Another paper set 23.5 - 23.5, and set temperete as 30-40
+# Another paper set 23.5 - 23.5, and set temperate as 30-40
 
 # Calculate effect sizes -------
 
@@ -136,8 +136,8 @@ meta_final <- meta %>%
   mutate(chla_bin = ifelse(chla_est <= upper_bin1, "1",
                       ifelse(chla_est <= upper_bin2, "2",
                              ifelse(chla_est <= upper_bin3, "3", 
-                                 ifelse(chla_est <= upper_bin4, "4", "5"))))) %>%
-  mutate(chla_log = log(chla_est),
+                                 ifelse(chla_est <= upper_bin4, "4", "5")))),
+         chla_log = log(chla_est),
          chla_bin_num = as.numeric(chla_bin))
 
 ggplot(meta_final, aes(chla_bin, chla_est, colour = chla_bin)) +
@@ -165,30 +165,6 @@ ggplot(meta_all_papers, aes(y = climate_zone, fill = climate_zone)) +
 #      height = 9, width = 16, dpi = 400)
 
 
-# Look at effect sizes????
-ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
-  geom_point(size = 3) +
-  scale_colour_manual(values = rev(pal), labels = climate_labs, guide = guide_legend(reverse = TRUE)) +
-  labs( y = "Lattitude", x = "Effect size", colour = "Climate Zone") + 
-  geom_vline(xintercept = 0, linetype="dotted", colour = "white", size = 1.6) +
-  theme_black() +
-  ylim(c(-75, 75))
-
-#ggsave("Output/Figures/response_lat", device = "png",
-#       height = 9, width = 16, dpi = 400)
-
-
-ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
-  geom_point(size = 3) +
-  scale_colour_manual(values = rev(pal), guide = "none") +
-  labs( y = "Lattitude", x = "Effect size", colour = "Climate Zone") + 
-  geom_vline(xintercept = 0, linetype="dotted", colour = "white", size = 1.6) +
-  theme_black()
-
-#ggsave("Output/Figures/response_lat_noleg", device = "png",
- #     height = 9, width = 16, dpi = 400)
-
-
 # GRAPHING CHL A
 ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
   geom_jitter()+
@@ -201,10 +177,6 @@ ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
 #ggsave("Output/Figures/chla_lat", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
-# chla vs effect size?
-ggplot(meta_final, aes(chla_log, yi, colour = paper_num)) +
-  geom_point() +
-  geom_smooth(method = lm)
 
 # take a look at the distribution of primary producers across latitudes
 ggplot(meta_final, aes(pp_taxa, climate_zone, colour = pp_taxa)) +
@@ -247,43 +219,6 @@ ggplot(meta_final, aes(c_taxa, pp_taxa, colour = climate2)) +
   scale_colour_manual(values = rev(pal2))
   
 
-# stats???------
-
-# Full versus reduced model comparisons in terms of fit statistics and likelihoods can be obtained with anova.rma
-# Permutation tests for the model coefficient(s) can be obtained with permutest.rma.uni. Tests and confidence intervals based on (cluster) robust methods can be obtained with robust.rma.uni.
-# Tests for funnel plot asymmetry (which may be indicative of publication bias) can be obtained with ranktest.rma and regtest.rma. For models without moderators, the trimfill.rma.uni method can be used to carry out a trim and fill analysis and hc.rma.uni provides a random-effects model analysis that is more robust to publication bias (based on the method by Henmi & Copas, 2010).
-
-# Try using "Doing Meta-Analysis in R"
-# https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/metareg.html
-
-# If you don't want to compare the models directly using the anova function, use the "REML" (restricted maximum likelihood) 
-model_control <- rma(yi = yi,
-                 vi = vi,
-                 data = meta_final,
-                 method = "ML",
-                 test = "knha")
-
-model_lat <- rma(yi = yi,
-                       vi = vi,
-                       data = meta_final,
-                       method = "ML",
-                       mods = ~ lat_dec,
-                       test = "knha")
-
-# is the model with lat better than the null model? NO
-anova(model_control, model_lat)
-
-model_chla <- rma(yi = yi,
-                 vi = vi,
-                 data = meta_final,
-                 method = "ML",
-                 mods = ~ chla_bin,
-                 test = "knha")
-
-# how about the model with chl a? is it better than the null model? YES???
-anova(model_control, model_chla)
-
-
 # Multilevel models ------
 # There is a special way through which we can tell rma.mv to assume such nested random effects. We do this using a slash (/) to separate the higher- and lower-level grouping variable. To the left of /, we put in the level 3 (cluster) variable. To the right, we insert the lower-order variable nested in the larger cluster. Therefore, the general structure of the formula looks like this: ~ 1 | cluster/effects_within_cluster
 
@@ -315,7 +250,7 @@ summary(model_lat_paper)
 
 # don't have to worry about tau2.levels and gamma2.levels arguments because I'm not using newmods, I'm just predicting the effects at the lat values from my input data
 
-lat_predict <- as.data.frame(predict(model_lat_paper, 
+lat_predict <- as.data.frame(predict(model_lat_paper,
                        addx=TRUE)) %>%
   tibble::rownames_to_column("author") %>%
   rename(abs_lat = X.abs_lat) 
@@ -350,52 +285,61 @@ ggplot() +
   theme_classic() +
   labs(x = "Absolute latitude", y = "Predicted Effect Size") +
   theme(legend.position="none") +
-  scale_color_manual(values = sample(col_vector, n))
+  scale_color_manual(values = sample(col_vector, n)) +
+  geom_hline(yintercept=0, color="black", linetype="dashed")
 
 
 # Chl a multilevel models -----
-model_chla_paper_numeric <- rma.mv(yi = yi,
-                               V = vi,
-                               slab = author,
-                               data = meta_final,
-                               method = "REML",
-                               mods = ~ chla_bin_num,
-                               random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
-                               test = "t")
-summary(model_chla_paper_numeric)
+# Ok there are multiple ways to look at chl a data
 
-model_chla_paper_bin <- rma.mv(yi = yi,
-                          V = vi,
-                          slab = author,
-                          data = meta_final,
-                          method = "REML",
-                          mods = ~ chla_bin,
-                          random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
-                          test = "t")
-
-summary(model_chla_paper_bin)
-
-
-model_chla_paper_log <- rma.mv(yi = yi,
-                               V = vi,
-                               slab = author,
-                               data = meta_final,
-                               method = "REML",
-                               mods = ~ chla_log,
-                               random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
-                               test = "t")
-summary(model_chla_paper_log)
-
+# Untransformed chl a estimates as a linear model
 model_chla_paper_est <- rma.mv(yi = yi,
                                V = vi,
                                slab = author,
                                data = meta_final,
                                method = "REML",
                                mods = ~ chla_est,
-                               random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                               random = ~ 1 | paper_num/indiv,
                                test = "t")
 
 summary(model_chla_paper_est)
+
+# Transformed log chl a data
+# Do this when you know that a predictor wouldn't increase the response forever (non linear)
+model_chla_paper_log <- rma.mv(yi = yi,
+                               V = vi,
+                               slab = author,
+                               data = meta_final,
+                               method = "REML",
+                               mods = ~ chla_log,
+                               random = ~ 1 | paper_num/indiv,
+                               test = "t")
+summary(model_chla_paper_log)
+
+# Binned chl a as numeric
+model_chla_paper_numeric <- rma.mv(yi = yi,
+                               V = vi,
+                               slab = author,
+                               data = meta_final,
+                               method = "REML",
+                               mods = ~ chla_bin_num,
+                               random = ~ 1 | paper_num/indiv,
+                               test = "t")
+summary(model_chla_paper_numeric)
+
+# Binned categorical chl a
+model_chla_paper_bin <- rma.mv(yi = yi,
+                          V = vi,
+                          slab = author,
+                          data = meta_final,
+                          method = "REML",
+                          mods = ~ chla_bin,
+                          random = ~ 1 | paper_num/indiv, 
+                          test = "t")
+
+summary(model_chla_paper_bin)
+
+
 
 AIC(model_chla_paper_numeric, model_chla_paper_bin, model_chla_paper_log, model_chla_paper_est)
 # ok so interestingly the bins are the lowest AIC
@@ -414,13 +358,10 @@ AIC(model_chla_paper_numeric, model_chla_paper_bin, model_chla_paper_log, model_
 # https://www.researchgate.net/publication/318745880_Regression_with_Ordered_Predictors_via_Ordinal_Smoothing_Splines
 # https://cran.r-project.org/web/packages/ordPens/ordPens.pdf
 
-# I could maybe log transform the predictor --> log(chl a)
-# Do this when you know that a predictor wouldn't increase the response forever (non linear)
-
 # OK I want to use chla_est
 
 # Graph chl a ------
-chla_predict <- as.data.frame(predict(model_chla_paper_est, 
+chla_predict <- as.data.frame(predict(model_chla_paper_est,
                                      addx=TRUE)) %>%
   tibble::rownames_to_column("author") %>%
   rename(chla_est = X.chla_est) 
@@ -482,7 +423,7 @@ nat_effect_sum <- coef(summary(model_nat_paper)) %>%
 # GRAPH THIS?
 nat_labs <- c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")
 
-nat_n_labs <- c("n = 72", "n = 14", "n = 16", "n = 10", "n = 62")
+nat_n_labs <- c("n = 69", "n = 14", "n = 16", "n = 9", "n = 61")
 
 ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = nat_bin)) +
   geom_point(size = 6) +
@@ -542,7 +483,7 @@ act_effect_sum <- coef(summary(model_act_paper)) %>%
 # GRAPH THIS?
 act_labs <- c("Vertebrate", "Mobile Invert", "Sessile Invert")
 
-act_n_labs <- c("n = 46", "n = 21", "n = 107")
+act_n_labs <- c("n = 44", "n = 21", "n = 104")
 
 ggplot(act_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = c_activity)) +
   geom_point(size = 6) +
@@ -632,7 +573,7 @@ ggplot(coral_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, 
 # Independence and Bias -------
 
 funnel.rma(model_lat_paper)
-funnel.rma(model_chla_paper)
+funnel.rma(model_chla_paper_est)
 funnel.rma(model_nat_paper)
 # A bit of a right skew
 
@@ -649,21 +590,27 @@ max_obs <- meta_final %>%
 
 hist(max_obs$num_obs)
 
-# there's 174 data points
-# so 10% of that would be 17.4 observations per paper
+total_num_obs <- sum(max_obs$num_obs)
+
+# there's 169 data points
+# so 10% of that would be 16.9 observations per paper
 # so that would mean that paper # 17 and #23 and #31 have too many. try running things without those two
 
 # Ok so let's remove those papers and rerun the stats???
 
-meta_f <- meta_final %>%
+meta_drop <- meta_final %>%
+  filter(paper_num != 23) %>%
   filter(paper_num != 31)
 
+# removing 31 really changes the lat result
+# and removing 23 really changes chl a result
+# see what happens when I remove both
 
 # Rerun lat ----
 model_lat_drop <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
-                          data = meta_f,
+                          data = meta_drop,
                           method = "REML",
                           mods = ~ abs_lat,
                           random = ~ 1 | paper_num/indiv, 
@@ -674,15 +621,48 @@ summary(model_lat_drop)
 # Removed # 17, p-value is 0.3459 versus 0.2592
 # Removed # 23, p-value is 0.7198 versus 0.2592
 # Removed # 31, p-value is 0.0613 versus 0.2592
+# Removed # 23 and 31, p-value is 0.2969 versus 0.2592
+
+# OK so removing #31 does something.... 
+# lets graph that
+lat_predict_drop <- as.data.frame(predict(model_lat_drop,
+                                     addx=TRUE)) %>%
+  tibble::rownames_to_column("author") %>%
+  rename(abs_lat = X.abs_lat) 
+
+# set seed because otherwise I'll get different colours each time
+set.seed(1235)
+
+# plot predicted values as line, jitter observed effect sizes
+ggplot() +
+  geom_line(data = lat_predict_drop, aes(abs_lat, pred)) +
+  geom_jitter(data = meta_drop, aes(abs_lat, yi, colour = author)) +
+  geom_ribbon(data = lat_predict_drop, aes(abs_lat, pred, ymin = ci.lb, ymax = ci.ub), alpha = .1) +
+  theme_classic() +
+  labs(x = "Absolute latitude", y = "Predicted Effect Size") +
+  theme(legend.position="none") +
+  scale_color_manual(values = sample(col_vector, n)) +
+  geom_hline(yintercept=0, color="black", linetype="dashed")
 
 
 # Rerun chl a -----
+meta_drop <- meta_final %>%
+  filter(paper_num != 23)
+
+meta_23 <- meta_final %>%
+  filter(paper_num == 23)
+
+meta_dropped <- meta_final %>%
+  filter(paper_num == 31) %>%
+  rbind(meta_23) %>%
+  select(author, lat_dec, season,year_of_study, abs_lat, climate_zone, yi, vi, chla_est)
+
 model_chla_drop <- rma.mv(yi = yi,
                            V = vi,
                            slab = author,
-                           data = meta_f,
+                           data = meta_drop,
                            method = "REML",
-                           mods = ~ chla_est,
+                           mods = ~ chla_log,
                            random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
                            test = "t")
 
@@ -690,6 +670,31 @@ summary(model_chla_drop)
 # Remove # 17 p-value is 0.1639 versus 0.1065 
 # Remove # 23 p-value is 0.8172 versus 0.1065 
 # Remove # 31 p-value is 0.0593 versus 0.1065 
+# Removing #23 and 31 p-value is 0.5654 versus 0.1065 
+
+# Might need to cut #23 because it seriously changes the p value?
+
+chla_predict_drop <- as.data.frame(predict(model_chla_drop,
+                                      addx=TRUE)) %>%
+  tibble::rownames_to_column("author") %>%
+  rename(chla_log = X.chla_log) 
+
+# set seed because otherwise I'll get different colours each time
+set.seed(1235)
+
+# plot predicted values as line, jitter observed effect sizes
+ggplot() +
+  geom_line(data = chla_predict_drop, aes(chla_log, pred)) +
+  geom_jitter(data = meta_drop, aes(chla_log, yi, colour = author)) +
+  geom_ribbon(data = chla_predict_drop, aes(chla_log, pred, ymin = ci.lb, ymax = ci.ub), alpha = .1) +
+  theme_classic() +
+  labs(x = "Chl a estimate", y = "Predicted Effect Size") +
+  theme(legend.position="none") +
+  scale_color_manual(values = sample(col_vector, n)) +
+  geom_hline(yintercept=0, color="black", linetype="dashed")
+
+# OK so I think I'll have to drop # 23 and # 31 
+# And that means both lat and chl a are not significant predictors
 
 
 # Rerun natural-ness of experiment -----
@@ -884,6 +889,65 @@ ggplot(coral_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, 
 
 # CODE GRAVEYARD ---------
 
+# old stats -----
+# Full versus reduced model comparisons in terms of fit statistics and likelihoods can be obtained with anova.rma
+# Permutation tests for the model coefficient(s) can be obtained with permutest.rma.uni. Tests and confidence intervals based on (cluster) robust methods can be obtained with robust.rma.uni.
+# Tests for funnel plot asymmetry (which may be indicative of publication bias) can be obtained with ranktest.rma and regtest.rma. For models without moderators, the trimfill.rma.uni method can be used to carry out a trim and fill analysis and hc.rma.uni provides a random-effects model analysis that is more robust to publication bias (based on the method by Henmi & Copas, 2010).
+
+# Try using "Doing Meta-Analysis in R"
+# https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/metareg.html
+
+# If you don't want to compare the models directly using the anova function, use the "REML" (restricted maximum likelihood) 
+model_control <- rma(yi = yi,
+                     vi = vi,
+                     data = meta_final,
+                     method = "ML",
+                     test = "knha")
+
+model_lat <- rma(yi = yi,
+                 vi = vi,
+                 data = meta_final,
+                 method = "ML",
+                 mods = ~ lat_dec,
+                 test = "knha")
+
+# is the model with lat better than the null model? NO
+anova(model_control, model_lat)
+
+model_chla <- rma(yi = yi,
+                  vi = vi,
+                  data = meta_final,
+                  method = "ML",
+                  mods = ~ chla_bin,
+                  test = "knha")
+
+# how about the model with chl a? is it better than the null model? YES???
+anova(model_control, model_chla)
+
+# Look at effect sizes????
+ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
+  geom_point(size = 3) +
+  scale_colour_manual(values = rev(pal), labels = climate_labs, guide = guide_legend(reverse = TRUE)) +
+  labs( y = "Lattitude", x = "Effect size", colour = "Climate Zone") + 
+  geom_vline(xintercept = 0, linetype="dotted", colour = "white", size = 1.6) +
+  theme_black() +
+  ylim(c(-75, 75))
+
+#ggsave("Output/Figures/response_lat", device = "png",
+#       height = 9, width = 16, dpi = 400)
+
+
+
+ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
+  geom_point(size = 3) +
+  scale_colour_manual(values = rev(pal), guide = "none") +
+  labs( y = "Lattitude", x = "Effect size", colour = "Climate Zone") + 
+  geom_vline(xintercept = 0, linetype="dotted", colour = "white", size = 1.6) +
+  theme_black()
+
+#ggsave("Output/Figures/response_lat_noleg", device = "png",
+#     height = 9, width = 16, dpi = 400)
+
 # Plotting binned chla ---------
 # How many papers in each bin?
 chla_n <- meta_final %>%
@@ -909,7 +973,7 @@ chla_effect_sum <- coef(summary(model_chla_paper_bin)) %>%
 
 # GRAPH THIS?
 chla_bin_labs <- c("Very low", "Low", "Medium", "High", "Very high")
-n_labs_chla <- c("n = 104", "n = 31", "n = 6", "n = 4", "n = 24")
+n_labs_chla <- c("n = 109", "n = 29", "n = 7", "n = 6", "n = 18")
 
 ggplot(chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = chla_bin)) +
   geom_point(size = 6) +
@@ -925,7 +989,6 @@ ggplot(chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, c
   scale_color_brewer(palette = 'Greens') +
   theme_black()+ 
   theme(legend.position = "none")
-
 
 #ggsave("Output/Figures/effects_chla", device = "png",
 #      height = 9, width = 16, dpi = 400)
