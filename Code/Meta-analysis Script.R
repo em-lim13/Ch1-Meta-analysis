@@ -2,7 +2,6 @@
 # Em Lim
 # Dec 2021
 
-# See if github works
 # Load packages and data -------
 
 library(tidyverse)
@@ -16,8 +15,6 @@ library(esc)
 library(RColorBrewer)
 
 source(file = "Code/theme_black_code.R")
-
-#In the first case, object x is a fitted model object coming from the rma.uni, rma.mh, or rma.peto functions. The corresponding method is then forest.rma.
 
 
 # mine data
@@ -127,6 +124,13 @@ upper_bin3 <- bin_size*3
 upper_bin4 <- bin_size*4
 upper_bin5 <- bin_size*5
 
+# Smaller bins
+bin_size_small <- max/3
+upper_bin_low <- bin_size_small
+upper_bin_mid <- bin_size_small*2
+upper_bin_high <- bin_size_small*3
+
+
 # use this so that it still works even if the max chla value changes
 
 # add chl a estimates to df
@@ -138,7 +142,11 @@ meta_final <- meta %>%
                              ifelse(chla_est <= upper_bin3, "3", 
                                  ifelse(chla_est <= upper_bin4, "4", "5")))),
          chla_log = log(chla_est),
-         chla_bin_num = as.numeric(chla_bin))
+         chla_bin_num = as.numeric(chla_bin)) %>%
+  mutate(chla_bin_small = factor(ifelse(chla_est <= upper_bin_low, "Low",
+                                  ifelse(chla_est <= upper_bin_mid, "Medium",
+                                         "High")),
+                           levels = c("Low", "Medium", "High")))
 
 ggplot(meta_final, aes(chla_bin, chla_est, colour = chla_bin)) +
   geom_jitter() +
@@ -176,6 +184,13 @@ ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
 
 #ggsave("Output/Figures/chla_lat", device = "png",
 #     height = 9, width = 16, dpi = 400)
+
+ggplot(meta_final, aes(x = abs_lat, y = chla_est, colour = climate_zone)) +
+  geom_jitter()+
+  scale_colour_manual(values = rev(pal), labels = climate_labs) +
+  labs(x = "Latitude", y = "Chlorophyll a (mg/m^2)") + 
+  theme_black() + 
+  theme(legend.position = "none") 
 
 
 # take a look at the distribution of primary producers across latitudes
@@ -218,11 +233,23 @@ ggplot(meta_final, aes(c_taxa, pp_taxa, colour = climate2)) +
         axis.title = element_text(size = 18)) +
   scale_colour_manual(values = rev(pal2))
   
+# a lot of bivalve papers coming out of temperate regions
+
+# OK stats -------
+
+# First of all.... does lat predict chl a?
+chla_lat <- lm(chla_est ~ abs_lat, meta_final)
+summary(chla_lat)
+visreg(chla_lat)
+# OK so basically yes it sort of does.......
 
 # Multilevel models ------
+# Link to book with help:
+# https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/metareg.html
+
 # There is a special way through which we can tell rma.mv to assume such nested random effects. We do this using a slash (/) to separate the higher- and lower-level grouping variable. To the left of /, we put in the level 3 (cluster) variable. To the right, we insert the lower-order variable nested in the larger cluster. Therefore, the general structure of the formula looks like this: ~ 1 | cluster/effects_within_cluster
 
-# Latitude mulitlevel model ----
+# Latitude mulit level model ----
 
 # We are going to use the absolute value of latitude, because I have no reason to expect North temperate to vary from South temperate
 
@@ -236,6 +263,7 @@ model_lat_paper <- rma.mv(yi = yi,
               test = "t")
 
 summary(model_lat_paper)
+
 
 # Look at Test of Moderators to determine whether there are significant differences between the subgroups
 # p-value is 0.2592 so NO, there is NO difference!
@@ -288,8 +316,10 @@ ggplot() +
   scale_color_manual(values = sample(col_vector, n)) +
   geom_hline(yintercept=0, color="black", linetype="dashed")
 
+#ggsave("Output/Figures/abs_lat_effect", device = "png",
+#     height = 9, width = 16, dpi = 400)
 
-# Chl a multilevel models -----
+# Chlorophyll a multilevel models -----
 # Ok there are multiple ways to look at chl a data
 
 # Untransformed chl a estimates as a linear model
@@ -360,7 +390,7 @@ AIC(model_chla_paper_numeric, model_chla_paper_bin, model_chla_paper_log, model_
 
 # OK I want to use chla_est
 
-# Graph chl a ------
+# Graph chl a est------
 chla_predict <- as.data.frame(predict(model_chla_paper_est,
                                      addx=TRUE)) %>%
   tibble::rownames_to_column("author") %>%
@@ -377,7 +407,83 @@ ggplot() +
   theme_classic() +
   labs(x = "Chl a estimate", y = "Predicted Effect Size") +
   theme(legend.position="none") +
-  scale_color_manual(values = sample(col_vector, n))
+  scale_color_manual(values = sample(col_vector, n)) +
+  geom_hline(yintercept=0, color="black", linetype="dashed")
+
+#ggsave("Output/Figures/chla_est_effect", device = "png",
+#     height = 9, width = 16, dpi = 400)
+
+# Graph chl a log------
+chla_predict_log <- as.data.frame(predict(model_chla_paper_log,
+                                      addx=TRUE)) %>%
+  tibble::rownames_to_column("author") %>%
+  rename(chla_log = X.chla_log) 
+
+# set seed because otherwise I'll get different colours each time
+set.seed(1235)
+
+# plot predicted values as line, jitter observed effect sizes
+ggplot() +
+  geom_line(data = chla_predict_log, aes(chla_log, pred)) +
+  geom_jitter(data = meta_final, aes(chla_log, yi, colour = author)) +
+  geom_ribbon(data = chla_predict_log, aes(chla_log, pred, ymin = ci.lb, ymax = ci.ub), alpha = .1) +
+  theme_classic() +
+  labs(x = "Log(chl a estimate)", y = "Predicted Effect Size") +
+  theme(legend.position="none") +
+  scale_color_manual(values = sample(col_vector, n)) +
+  geom_hline(yintercept=0, color="black", linetype="dashed")
+
+#ggsave("Output/Figures/chla_log_effect", device = "png",
+#       height = 9, width = 16, dpi = 400)
+
+# Chl a * latitude interaction multi level model -------
+# this might be sketchy be chl a is sort of correlated with lat??????
+model_multi <- rma.mv(yi = yi,
+                               V = vi,
+                               slab = author,
+                               data = meta_final,
+                               method = "REML",
+                               mods = ~ chla_log * abs_lat,
+                               random = ~ 1 | paper_num/indiv,
+                               test = "t")
+
+summary(model_multi)
+# OKKKKKKK so basically there's an interaction between lat and chl a ????
+# what does that mean
+# negative interaction tells us that the two variables have an antagonistic effect – increasing both variables simultaneously results in a smaller effect size than if we added the main effects of each together
+
+# so the further you get from the poles, and the higher the chl a is, the less effect pee has?
+
+# Try to graph?
+ggplot(meta_final, aes(x = abs_lat, y = yi, colour = chla_bin)) +
+  geom_point() +
+  geom_smooth(method = lm)
+
+lat_chla_predict <- as.data.frame(predict(model_multi,
+                                     addx=TRUE)) %>%
+  tibble::rownames_to_column("author") %>%
+  rename(abs_lat = X.abs_lat,
+         chla_log = X.chla_log) %>%
+  mutate(chla_bin = factor(ifelse(chla_est <= upper_bin_low, "Low",
+                           ifelse(chla_est <= upper_bin_mid, "Medium",
+                                   "High")),
+                           levels = c("Low", "Medium", "High")),
+         climate = factor(ifelse(abs_lat <= 23.5, "Tropics",
+                                  ifelse(abs_lat <= 40, "Subtropics",
+                                         ifelse(abs_lat <= 60, "Temperate",
+                                                "Polar"))),
+                           levels = c("Tropics", "Subtropics", "Temperate", "Polar")))
+         
+
+# plot predicted values as line, jitter observed effect sizes
+ggplot() +
+  geom_line(data = lat_chla_predict,  aes(chla_log, pred, colour = climate)) +
+  geom_point(data = meta_final, aes(chla_log, yi, colour = climate2)) +
+  geom_ribbon(data = lat_chla_predict, aes(chla_log, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .1) +
+  theme_classic() +
+  labs(x = "Chl a", y = "Predicted Effect Size", colour = "Climate", fill = "Climate") +
+  geom_hline(yintercept=0, color="black", linetype="dashed")
+
 
 
 # Natural-ness of experiment multilevel model-----
@@ -596,14 +702,16 @@ total_num_obs <- sum(max_obs$num_obs)
 # so 10% of that would be 16.9 observations per paper
 # so that would mean that paper # 17 and #23 and #31 have too many. try running things without those two
 
-# Ok so let's remove those papers and rerun the stats???
+# Ok so let's remove those papers one at a time and rerun the stats???
 
 meta_drop <- meta_final %>%
   filter(paper_num != 23) %>%
   filter(paper_num != 31)
 
 # removing 31 really changes the lat result
+  # contributed the highest 2 effect sizes
 # and removing 23 really changes chl a result
+  # 23 was the highest chl a estimate
 # see what happens when I remove both
 
 # Rerun lat ----
@@ -623,7 +731,6 @@ summary(model_lat_drop)
 # Removed # 31, p-value is 0.0613 versus 0.2592
 # Removed # 23 and 31, p-value is 0.2969 versus 0.2592
 
-# OK so removing #31 does something.... 
 # lets graph that
 lat_predict_drop <- as.data.frame(predict(model_lat_drop,
                                      addx=TRUE)) %>%
@@ -662,31 +769,30 @@ model_chla_drop <- rma.mv(yi = yi,
                            slab = author,
                            data = meta_drop,
                            method = "REML",
-                           mods = ~ chla_log,
+                           mods = ~ chla_est,
                            random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
                            test = "t")
 
 summary(model_chla_drop)
 # Remove # 17 p-value is 0.1639 versus 0.1065 
-# Remove # 23 p-value is 0.8172 versus 0.1065 
+# Remove # 23 p-value is 0.8172 versus 0.1065 # BIG change
 # Remove # 31 p-value is 0.0593 versus 0.1065 
 # Removing #23 and 31 p-value is 0.5654 versus 0.1065 
 
-# Might need to cut #23 because it seriously changes the p value?
 
 chla_predict_drop <- as.data.frame(predict(model_chla_drop,
                                       addx=TRUE)) %>%
   tibble::rownames_to_column("author") %>%
-  rename(chla_log = X.chla_log) 
+  rename(chla_est = X.chla_est) 
 
 # set seed because otherwise I'll get different colours each time
 set.seed(1235)
 
 # plot predicted values as line, jitter observed effect sizes
 ggplot() +
-  geom_line(data = chla_predict_drop, aes(chla_log, pred)) +
-  geom_jitter(data = meta_drop, aes(chla_log, yi, colour = author)) +
-  geom_ribbon(data = chla_predict_drop, aes(chla_log, pred, ymin = ci.lb, ymax = ci.ub), alpha = .1) +
+  geom_line(data = chla_predict_drop, aes(chla_est, pred)) +
+  geom_jitter(data = meta_drop, aes(chla_est, yi, colour = author)) +
+  geom_ribbon(data = chla_predict_drop, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub), alpha = .1) +
   theme_classic() +
   labs(x = "Chl a estimate", y = "Predicted Effect Size") +
   theme(legend.position="none") +
@@ -695,6 +801,28 @@ ggplot() +
 
 # OK so I think I'll have to drop # 23 and # 31 
 # And that means both lat and chl a are not significant predictors
+
+# Rerun interaction model ------
+meta_drop <- meta_final %>%
+  filter(paper_num != 23)
+
+model_multi_drop <- rma.mv(yi = yi,
+                      V = vi,
+                      slab = author,
+                      data = meta_drop,
+                      method = "REML",
+                      mods = ~ chla_est * abs_lat,
+                      random = ~ 1 | paper_num/indiv,
+                      test = "t")
+
+summary(model_multi_drop)
+
+# Remove # 17 p-value is 0.0714 versus 0.0862 
+# Remove # 23 p-value is 0.3269 versus 0.0862
+  # but the p val for the chl a, lat, and interaction are still basically the same
+# Remove # 31 p-value is 0.0571 versus 0.0862 
+
+# OK so it looks like I might not need to drop #23 ??????
 
 
 # Rerun natural-ness of experiment -----
