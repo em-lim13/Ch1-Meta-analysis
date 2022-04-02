@@ -16,6 +16,8 @@ library(RColorBrewer)
 
 source(file = "Code/theme_black_code.R")
 
+# Set preferences so I can see all my columns
+rstudioapi::writeRStudioPreference("data_viewer_max_columns", 1000L)
 
 # mine data
 # https://automeris.io/WebPlotDigitizer/
@@ -31,7 +33,7 @@ meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
          natural = as.factor(natural),
          abs_lat = abs(lat_dec), # creating an absolute value lat
          climate2 = factor(ifelse(abs_lat <= 23.45, "Tropics",
-                           ifelse(abs_lat <= 40, "Subtropics",
+                           ifelse(abs_lat <= 35, "Subtropics",
                                   ifelse(abs_lat <= 60, "Temperate",
                                          "Polar"))),
          levels = c("Tropics", "Subtropics", "Temperate", "Polar")), # New column where I don't distinguish between North subtropics/temperates and South subtropics/temperates
@@ -55,43 +57,27 @@ meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
 ##### I think I need to manually exclude the negative means because it's still calculating effect sizes for those
 meta_no_neg <- meta_full %>%
   filter(mean_control > 0) %>%
-  filter(mean_treatment > 0)
+  filter(mean_treatment > 0) %>%
+  filter(paper_num != 23) %>% # Remove influential study
+  filter(paper_num != 31) # Remove influential study
 
 # We lose 5 rows when we remove 0's and 7 when we remove negatives (12 total)
 # should I switch to Hedges g????
 # Should I add like 0.0000000000001 to all the 0's?
  # NO DO NOT DO THIS IT RUINS EVERYTHING EVERY STATISTICAL ANALYSIS BECOMES P = 0.99
 
-# Try calculating Hedges g 
-meta_g <- meta_full %>%
-  escalc(measure = "SMD", data = meta_no_neg,
-         m1i = mean_treatment, sd1i = sd_treatment, 
-         m2i = mean_control, sd2i = sd_control,
-         n1i = treatment_n, n2i = control_n) %>%
-  transmute(indiv = indiv,
-            effect_hedges_g = yi,
-            var_hedges_g = vi)
-
-# OK so when I use Hedges g for some reason chl a goes not significant. 
-# I think we should stick with ROM??? That's the effect size we initially chose
-
 meta <- meta_no_neg %>%
   escalc(measure = "ROM", data = meta_no_neg,
        m1i = mean_treatment, sd1i = sd_treatment, 
        m2i = mean_control, sd2i = sd_control,
-       n1i = treatment_n, n2i = control_n) %>%
+       n1i = treatment_n, n2i = control_n)
 # ROM for log transformed ratio of means
 # log(treatment/control)
-  left_join(meta_g, by = "indiv")
 
-# Compare hedges g vs ROM
-ggplot(meta, aes(yi, effect_hedges_g)) +
-  geom_point()
-
+# Gather all papers into dataframe where each is counted once -------
 # Make a data frame where there's only one row for each paper to graph where the papers are from
 meta_reduced <- meta_full %>%
   filter(obs_num == 1) 
-
 
 # Load papers that I can't use but that mostly pass the criteria
 meta_rejected <- read_csv("Output/Data/rejected_papers.csv") %>%
@@ -108,13 +94,15 @@ meta_all_papers <- meta_reduced %>%
   rbind(meta_rejected) # df with all the papers I'm using and the papers I can't use but that still mostly meet the criteria
 
 # Add chla data to orig meta dataframe  -------
-# this file was writted in the Chla_extraction.R code file
-chla_all_values <- read_csv("Output/Data/all_extracted_chla.csv")
+# this file was written in the Chla_extraction.R code file
+chla_all_values <- read_csv("Output/Data/all_extracted_chla.csv") 
 
+meta_chl <- meta %>%
+  left_join(chla_all_values, by = "indiv")
 
 # What's the max and min chla value?
-max <- max(chla_all_values$chla_est) # 26.73629
-min<- min(chla_all_values$chla_est) # 0.05139377
+max <- max(meta_chl$chla_est) # 21.48487
+min<- min(meta_chl$chla_est) # 0.05139377
 
 # How big should each bin be?
 bin_size <- max/5
@@ -135,22 +123,17 @@ upper_bin_high <- bin_size_small*3
 
 # add chl a estimates to df
 # add a binned chl a column
-meta_final <- meta %>%
-  left_join(chla_all_values, by = "indiv") %>%
+meta_final <- meta_chl %>%
   mutate(chla_bin = ifelse(chla_est <= upper_bin1, "1",
                       ifelse(chla_est <= upper_bin2, "2",
                              ifelse(chla_est <= upper_bin3, "3", 
                                  ifelse(chla_est <= upper_bin4, "4", "5")))),
          chla_log = log(chla_est),
-         chla_bin_num = as.numeric(chla_bin)) %>%
-  mutate(chla_bin_small = factor(ifelse(chla_est <= upper_bin_low, "Low",
+         chla_bin_num = as.numeric(chla_bin),
+         chla_bin_small = factor(ifelse(chla_est <= upper_bin_low, "Low",
                                   ifelse(chla_est <= upper_bin_mid, "Medium",
                                          "High")),
                            levels = c("Low", "Medium", "High")))
-
-ggplot(meta_final, aes(chla_bin, chla_est, colour = chla_bin)) +
-  geom_jitter() +
-  theme_classic()
 
 # Graphing --------
 # Make palette
@@ -165,6 +148,13 @@ ggplot(meta_all_papers, aes(y = climate_zone, fill = climate_zone)) +
   geom_bar(stat="count") +
   scale_fill_manual(values = rev(pal)) +
   scale_y_discrete(labels = climate_labs) +
+  labs( y = "Climate Zone", x = "Number of Papers") + 
+  theme_black() + theme(legend.position = "none")
+
+# Using climate2
+ggplot(meta_all_papers, aes(y = climate2, fill = climate2)) +
+  geom_bar(stat="count") +
+  scale_fill_manual(values = rev(pal2)) +
   labs( y = "Climate Zone", x = "Number of Papers") + 
   theme_black() + theme(legend.position = "none")
 
@@ -235,13 +225,6 @@ ggplot(meta_final, aes(c_taxa, pp_taxa, colour = climate2)) +
   
 # a lot of bivalve papers coming out of temperate regions
 
-# OK stats -------
-
-# First of all.... does lat predict chl a?
-chla_lat <- lm(chla_est ~ abs_lat, meta_final)
-summary(chla_lat)
-visreg(chla_lat)
-# OK so basically yes it sort of does.......
 
 # Multilevel models ------
 # Link to book with help:
@@ -266,7 +249,7 @@ summary(model_lat_paper)
 
 
 # Look at Test of Moderators to determine whether there are significant differences between the subgroups
-# p-value is 0.2592 so NO, there is NO difference!
+# p-value is 0.2969 so NO, there is NO difference!
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
 # Graph lat ------
@@ -307,14 +290,15 @@ set.seed(1235)
 
 # plot predicted values as line, jitter observed effect sizes
 ggplot() +
-  geom_line(data = lat_predict, aes(abs_lat, pred)) +
+  geom_line(data = lat_predict, aes(abs_lat, pred), colour = "white", size = 1.5) +
   geom_jitter(data = meta_final, aes(abs_lat, yi, colour = author)) +
-  geom_ribbon(data = lat_predict, aes(abs_lat, pred, ymin = ci.lb, ymax = ci.ub), alpha = .1) +
+  geom_ribbon(data = lat_predict, aes(abs_lat, pred, ymin = ci.lb, ymax = ci.ub), alpha = .1, fill = "white") +
   theme_classic() +
-  labs(x = "Absolute latitude", y = "Predicted Effect Size") +
-  theme(legend.position="none") +
+  labs(x = "Absolute latitude", y = "Effect Size") +
   scale_color_manual(values = sample(col_vector, n)) +
-  geom_hline(yintercept=0, color="black", linetype="dashed")
+  geom_hline(yintercept=0, color="white", linetype="dashed") +
+  theme_black() +
+  theme(legend.position="none")
 
 #ggsave("Output/Figures/abs_lat_effect", device = "png",
 #     height = 9, width = 16, dpi = 400)
@@ -401,14 +385,16 @@ set.seed(1235)
 
 # plot predicted values as line, jitter observed effect sizes
 ggplot() +
-  geom_line(data = chla_predict, aes(chla_est, pred)) +
+  geom_line(data = chla_predict, aes(chla_est, pred), colour = "white", size = 1.5) +
   geom_jitter(data = meta_final, aes(chla_est, yi, colour = author)) +
-  geom_ribbon(data = chla_predict, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub), alpha = .1) +
+  geom_ribbon(data = chla_predict, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub), fill = "white", alpha = .1) +
   theme_classic() +
-  labs(x = "Chl a estimate", y = "Predicted Effect Size") +
-  theme(legend.position="none") +
+  labs(x = expression(paste(Chlorophyll~a~(mg/m^{2}))), y = "Effect Size") +
   scale_color_manual(values = sample(col_vector, n)) +
-  geom_hline(yintercept=0, color="black", linetype="dashed")
+  geom_hline(yintercept=0, color="white", linetype="dashed") +
+  theme_black() +
+  theme(legend.position="none")
+
 
 #ggsave("Output/Figures/chla_est_effect", device = "png",
 #     height = 9, width = 16, dpi = 400)
@@ -434,7 +420,7 @@ ggplot() +
   geom_hline(yintercept=0, color="black", linetype="dashed")
 
 #ggsave("Output/Figures/chla_log_effect", device = "png",
-#       height = 9, width = 16, dpi = 400)
+ #      height = 9, width = 16, dpi = 400)
 
 # Chl a * latitude interaction multi level model -------
 # this might be sketchy be chl a is sort of correlated with lat??????
@@ -443,47 +429,242 @@ model_multi <- rma.mv(yi = yi,
                                slab = author,
                                data = meta_final,
                                method = "REML",
-                               mods = ~ chla_log * abs_lat,
+                               mods = ~ chla_est * abs_lat,
                                random = ~ 1 | paper_num/indiv,
                                test = "t")
 
 summary(model_multi)
+
+# check for colinearity
+vif(model_multi) # run this on the model without an interaction
+# value of 1 means they're not correlated with any other variables
+# higher value = greater correlation
+# values of more than 4 or 5 are regarded as moderate - hihg
+# values of 10+ are very high
+
 # OKKKKKKK so basically there's an interaction between lat and chl a ????
 # what does that mean
 # negative interaction tells us that the two variables have an antagonistic effect – increasing both variables simultaneously results in a smaller effect size than if we added the main effects of each together
 
 # so the further you get from the poles, and the higher the chl a is, the less effect pee has?
 
-# Try to graph?
-ggplot(meta_final, aes(x = abs_lat, y = yi, colour = chla_bin)) +
-  geom_point() +
-  geom_smooth(method = lm)
+# LOG CHLA?
+model_multi_log <- rma.mv(yi = yi,
+                      V = vi,
+                      slab = author,
+                      data = meta_final,
+                      method = "REML",
+                      mods = ~ chla_log * abs_lat,
+                      random = ~ 1 | paper_num/indiv,
+                      test = "t")
 
-lat_chla_predict <- as.data.frame(predict(model_multi,
-                                     addx=TRUE)) %>%
-  tibble::rownames_to_column("author") %>%
-  rename(abs_lat = X.abs_lat,
-         chla_log = X.chla_log) %>%
-  mutate(chla_bin = factor(ifelse(chla_est <= upper_bin_low, "Low",
-                           ifelse(chla_est <= upper_bin_mid, "Medium",
-                                   "High")),
-                           levels = c("Low", "Medium", "High")),
-         climate = factor(ifelse(abs_lat <= 23.5, "Tropics",
-                                  ifelse(abs_lat <= 40, "Subtropics",
-                                         ifelse(abs_lat <= 60, "Temperate",
-                                                "Polar"))),
+summary(model_multi_log)
+
+AIC(model_multi, model_multi_log)
+#OOOOOKAY so the untransformed model is slightly better
+
+# Graph interaction model -------
+
+# make own df of lat values
+mean_lat_chla <- meta_final %>%
+  group_by(climate2) %>%
+  summarise(mean = mean(abs_lat),
+            min_chla = min(chla_est),
+            max_chla = max(chla_est))
+
+# what are the min and max chl a values for each zome
+
+
+lat_values <- data.frame(chla_est = c(seq(from = 0.09748242, to = 1.522176, length.out = 20),
+                                     seq(from = 0.05139377, to = 6.724741, length.out = 20),
+                                     seq(from = 0.85469812, to = 21.484869, length.out = 20),
+                                     seq(from = 0.44598898, to = 0.445989, length.out = 20)),
+                         abs_lat = c(rep(17.45767, times = 20), 
+                                     rep(26.34486, times = 20), 
+                                     rep(45.34404, times = 20), 
+                                     rep(74.21667, times = 20))) %>%
+  mutate(`chla_est:abs_lat` = chla_est*abs_lat) %>%
+  as.matrix()
+
+# change the sequence for chl a to represent the chl a values we actually see at these latitudes (similar notation to how I did latitude with c() instead of rep())
+# and change lat values for each bin to better reflect the avg lat in that bin
+
+# use predict to tell it which values you want predictions for
+lat_chla_predict <- as.data.frame(predict(object = model_multi,
+                                          newmods = lat_values)) %>%
+  cbind(lat_values) %>%
+  mutate(climate = factor(c(rep("Tropics", times = 20), 
+                            rep("Subtropics", times = 20), 
+                            rep("Temperate", times = 20), 
+                            rep("Polar", times = 20)),
                            levels = c("Tropics", "Subtropics", "Temperate", "Polar")))
-         
 
 # plot predicted values as line, jitter observed effect sizes
 ggplot() +
-  geom_line(data = lat_chla_predict,  aes(chla_log, pred, colour = climate)) +
-  geom_point(data = meta_final, aes(chla_log, yi, colour = climate2)) +
-  geom_ribbon(data = lat_chla_predict, aes(chla_log, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .1) +
-  theme_classic() +
-  labs(x = "Chl a", y = "Predicted Effect Size", colour = "Climate", fill = "Climate") +
-  geom_hline(yintercept=0, color="black", linetype="dashed")
+  geom_line(data = lat_chla_predict,  aes(chla_est, pred, colour = climate), size = 1.7) +
+  geom_point(data = meta_final, aes(chla_est, yi, colour = climate2), size = 2.5) +
+  geom_ribbon(data = lat_chla_predict, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .2)+
+  labs(x = expression(paste(Chlorophyll~a~(mg/m^{2}))), y = "Effect Size", colour = "Climate", fill = "Climate") +
+  geom_hline(yintercept=0, color="white", linetype="dashed") +
+  theme_black() +
+  xlim(c(0, 21.5)) + ylim(c(-1, 3.2)) +
+  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 28", 
+                                                     "Subtropics n = 59",
+                                                     "Temperate n = 45", 
+                                                     "Polar n = 2")) +
+  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 28", 
+                                                   "Subtropics n = 59",
+                                                   "Temperate n = 45", 
+                                                   "Polar n = 2")) 
 
+ggsave("Output/Figures/interaction_effects", device = "png",
+     height = 9, width = 16, dpi = 400)
+
+# Just plot tropics
+trop_predict <- lat_chla_predict %>%
+  filter(climate == "Tropics")
+
+trop_meta <- meta_final %>%
+  filter(climate2 == "Tropics")
+
+# plot just tropics
+ggplot() +
+  geom_line(data = trop_predict,  aes(chla_est, pred, colour = climate), size = 1.7) +
+  geom_point(data = trop_meta, aes(chla_est, yi, colour = climate2), size = 2.5) +
+  geom_ribbon(data = trop_predict, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .2) +
+  labs(x = expression(paste(Chlorophyll~a~(mg/m^{2}))), y = "Effect Size", colour = "Climate", fill = "Climate") +
+  geom_hline(yintercept=0, color="white", linetype="dashed") +
+  theme_black() +
+  xlim(c(0, 21.5)) + ylim(c(-1, 3.2))+
+  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 28", 
+                                                     "Subtropics n = 59",
+                                                     "Temperate n = 45", 
+                                                     "Polar n = 2")) +
+  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 28", 
+                                                   "Subtropics n = 59",
+                                                   "Temperate n = 45", 
+                                                   "Polar n = 2")) 
+
+ggsave("Output/Figures/interaction_effects_trop", device = "png",
+     height = 9, width = 16, dpi = 400)
+
+# plot just tropics and subtropics
+trop_sub_predict <- lat_chla_predict %>%
+  filter(climate %in% c("Tropics", "Subtropics"))
+
+trop_sub_meta <- meta_final %>%
+  filter(climate2 %in% c("Tropics", "Subtropics"))
+
+# which studies have high chl a in subtropics?
+sub_chla <- trop_sub_meta %>%
+  filter(chla_est >5)
+
+# plot just tropics and subtropics
+ggplot() +
+  geom_line(data = trop_sub_predict,  aes(chla_est, pred, colour = climate), size = 1.7) +
+  geom_point(data = trop_sub_meta, aes(chla_est, yi, colour = climate2), size = 2.5) +
+  geom_ribbon(data = trop_sub_predict, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .2) +
+  labs(x = expression(paste(Chlorophyll~a~(mg/m^{2}))), y = "Effect Size", colour = "Climate", fill = "Climate") +
+  geom_hline(yintercept=0, color="white", linetype="dashed") +
+  theme_black() +
+  xlim(c(0, 21.5)) + ylim(c(-1, 3.2)) +
+  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 28", 
+                                                     "Subtropics n = 59",
+                                                     "Temperate n = 45", 
+                                                     "Polar n = 2")) +
+  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 28", 
+                                                   "Subtropics n = 59",
+                                                   "Temperate n = 45", 
+                                                   "Polar n = 2")) 
+
+ggsave("Output/Figures/interaction_effects_trop_sub", device = "png",
+     height = 9, width = 16, dpi = 400)
+
+# plot tropics, subtropics, and temperate
+trop_sub_temp_predict <- lat_chla_predict %>%
+  filter(climate %in% c("Tropics", "Subtropics", "Temperate"))
+
+trop_sub_temp_meta <- meta_final %>%
+  filter(climate2 %in% c("Tropics", "Subtropics", "Temperate"))
+
+# plot just tropics and subtropics
+ggplot() +
+  geom_line(data = trop_sub_temp_predict,  aes(chla_est, pred, colour = climate), size = 1.7) +
+  geom_point(data = trop_sub_temp_meta, aes(chla_est, yi, colour = climate2), size = 2.5) +
+  geom_ribbon(data = trop_sub_temp_predict, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .2) +
+  labs(x = expression(paste(Chlorophyll~a~(mg/m^{2}))), y = "Effect Size", colour = "Climate", fill = "Climate") +
+  geom_hline(yintercept=0, color="white", linetype="dashed") +
+  theme_black() +
+  xlim(c(0, 21.5)) + ylim(c(-1, 3.2))+
+  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 28", 
+                                                     "Subtropics n = 59",
+                                                     "Temperate n = 45", 
+                                                     "Polar n = 2")) +
+  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 28", 
+                                                   "Subtropics n = 59",
+                                                   "Temperate n = 45", 
+                                                   "Polar n = 2")) 
+
+ggsave("Output/Figures/interaction_effects_trop_sub_temp", device = "png",
+     height = 9, width = 16, dpi = 400)
+
+# Graph log interaction model ------
+# make own df of lat values
+mean_lat_chla_log <- meta_final %>%
+  group_by(climate2) %>%
+  summarise(mean = mean(abs_lat),
+            min_chla_log = min(chla_log),
+            max_chla_log = max(chla_log))
+
+# what are the min and max chl a values for each zone
+lat_values_log <- data.frame(chla_log = c(seq(from = -2.3280832, to = 0.4201407, length.out = 20),
+                                      seq(from = -2.9682384, to = 2.3666108, length.out = 20),
+                                      seq(from = -0.1570069, to = 3.0673489, length.out = 20),
+                                      seq(from = -0.8074610, to = -0.8074610, length.out = 20)),
+                         abs_lat = c(rep(17.45767, times = 20), 
+                                     rep(27.79097, times = 20), 
+                                     rep(47.36229, times = 20), 
+                                     rep(74.21667, times = 20))) %>%
+  mutate(`chla_log:abs_lat` = chla_log*abs_lat) %>%
+  as.matrix()
+
+# change the sequence for chl a to represent the chl a values we actually see at these latitudes (similar notation to how I did latitude with c() instead of rep())
+# and change lat values for each bin to better reflect the avg lat in that bin
+
+# use predict to tell it which values you want predictions for
+lat_chla_predict_log <- as.data.frame(predict(object = model_multi_log,
+                                          newmods = lat_values_log)) %>%
+  cbind(lat_values_log) %>%
+  mutate(climate = factor(c(rep("Tropics", times = 20), 
+                            rep("Subtropics", times = 20), 
+                            rep("Temperate", times = 20), 
+                            rep("Polar", times = 20)),
+                          levels = c("Tropics", "Subtropics", "Temperate", "Polar")))
+
+# plot predicted values as line, jitter observed effect sizes
+ggplot() +
+  geom_line(data = lat_chla_predict_log,  aes(chla_log, pred, colour = climate)) +
+  geom_point(data = meta_final, aes(chla_log, yi, colour = climate2)) +
+  geom_ribbon(data = lat_chla_predict_log, aes(chla_log, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .1) +
+  labs(x = "Log(chl a)", y = "Predicted Effect Size", colour = "Climate", fill = "Climate") +
+  geom_hline(yintercept=0, color="white", linetype="dashed") +
+  theme_black()
+
+
+#ggsave("Output/Figures/interaction_effects_log", device = "png",
+#     height = 9, width = 16, dpi = 400)
+
+# Chl a x cat lat interaction model ------
+model_multi2 <- rma.mv(yi = yi,
+                      V = vi,
+                      slab = author,
+                      data = meta_final,
+                      method = "REML",
+                      mods = ~ chla_est * climate2,
+                      random = ~ 1 | paper_num/indiv,
+                      test = "t")
+
+summary(model_multi2)
 
 
 # Natural-ness of experiment multilevel model-----
@@ -529,14 +710,14 @@ nat_effect_sum <- coef(summary(model_nat_paper)) %>%
 # GRAPH THIS?
 nat_labs <- c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")
 
-nat_n_labs <- c("n = 69", "n = 14", "n = 16", "n = 9", "n = 61")
+nat_n_labs <- c("n = 52", "n = 14", "n = 16", "n = 9", "n = 43")
 
 ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = nat_bin)) +
   geom_point(size = 6) +
   geom_errorbar(width = .5, size = 2) +
   geom_vline(xintercept=0, color="white", linetype="dashed") +
   theme_classic() +
-  labs(x = "Effect size (ROM)", y = " ") +
+  labs(x = "Effect size", y = " ") +
   scale_y_continuous(breaks = 1:length(nat_labs),
                      labels = nat_labs,
                      sec.axis = sec_axis(~.,
@@ -546,8 +727,8 @@ ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, co
   theme_black()+ 
   theme(legend.position = "none")
 
-#ggsave("Output/Figures/effects_nat", device = "png",
-#     height = 9, width = 16, dpi = 400)
+ggsave("Output/Figures/effects_nat", device = "png",
+     height = 9, width = 8, dpi = 400)
 
 # Consumer activity level multilevel model -----
 model_act_paper <- rma.mv(yi = yi,
@@ -589,14 +770,14 @@ act_effect_sum <- coef(summary(model_act_paper)) %>%
 # GRAPH THIS?
 act_labs <- c("Vertebrate", "Mobile Invert", "Sessile Invert")
 
-act_n_labs <- c("n = 44", "n = 21", "n = 104")
+act_n_labs <- c("n = 44", "n = 21", "n = 69")
 
 ggplot(act_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = c_activity)) +
   geom_point(size = 6) +
   geom_errorbar(width = .5, size = 2) +
   geom_vline(xintercept=0, color="white", linetype="dashed") +
   theme_classic() +
-  labs(x = "Effect size (ROM)", y = " ") +
+  labs(x = "Effect size", y = " ") +
   scale_y_continuous(breaks = 1:length(act_labs),
                      labels = act_labs,
                      sec.axis = sec_axis(~.,
@@ -606,8 +787,8 @@ ggplot(act_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, co
   theme_black()+ 
   theme(legend.position = "none")
 
-#ggsave("Output/Figures/effects_act", device = "png",
-#     height = 9, width = 16, dpi = 400)
+ggsave("Output/Figures/effects_act", device = "png",
+     height = 9, width = 8, dpi = 400)
 
 
 # I feel like at some point I will have to address the differences between the tropical taxons and the temperate taxons
@@ -675,6 +856,53 @@ ggplot(coral_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, 
   theme(legend.position = "none")
 # Ok so yeah basically the coral and endosymbionts aren't showing different effect sizes, the coral is just a tighter estimate, probably bc it has a larger n
 
+# Separate climate zones -------
+tropical <- meta_final %>%
+  filter(climate2 == "Tropics")
+
+subtropics <- meta_final %>%
+  filter(climate2 == "Subtropics")
+
+temperate <- meta_final %>%
+  filter(climate2 == "Temperate")
+
+# Does chl a matter in the tropics?
+model_chla_tropical <- rma.mv(yi = yi,
+                               V = vi,
+                               slab = author,
+                               data = tropical,
+                               method = "REML",
+                               mods = ~ chla_est,
+                               random = ~ 1 | paper_num/indiv,
+                               test = "t")
+
+summary(model_chla_tropical) #No
+
+# Does chl a matter in the subtropics?
+model_chla_subtropics <- rma.mv(yi = yi,
+                              V = vi,
+                              slab = author,
+                              data = subtropics,
+                              method = "REML",
+                              mods = ~ chla_est,
+                              random = ~ 1 | paper_num/indiv,
+                              test = "t")
+
+summary(model_chla_subtropics) #Not really
+
+# Does chl a matter in the temperates?
+model_chla_temperate <- rma.mv(yi = yi,
+                              V = vi,
+                              slab = author,
+                              data = temperate,
+                              method = "REML",
+                              mods = ~ chla_est,
+                              random = ~ 1 | paper_num/indiv,
+                              test = "t")
+
+summary(model_chla_temperate) #No
+
+# Don't bother with polar bc only one study
 
 # Independence and Bias -------
 
@@ -811,11 +1039,14 @@ model_multi_drop <- rma.mv(yi = yi,
                       slab = author,
                       data = meta_drop,
                       method = "REML",
-                      mods = ~ chla_est * abs_lat,
+                      mods = ~ chla_est + abs_lat,
                       random = ~ 1 | paper_num/indiv,
                       test = "t")
 
 summary(model_multi_drop)
+
+# check for colinearity
+vif(model_multi_drop) # run this on the model without an interaction
 
 # Remove # 17 p-value is 0.0714 versus 0.0862 
 # Remove # 23 p-value is 0.3269 versus 0.0862
@@ -1205,7 +1436,7 @@ cli_effect_sum <- coef(summary(model_climate_paper)) %>%
 
 
 # GRAPH THIS
-n_labs_cli <- c("n = 28", "n = 70", "n = 74", "n = 2")
+n_labs_cli <- c("n = 28", "n = 68", "n = 36", "n = 2")
 cli_labs <- c("Tropics", "Subtropics", "Temperate", "Polar")
 
 ggplot(cli_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate2)) +
