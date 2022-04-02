@@ -15,6 +15,7 @@ library(esc)
 library(RColorBrewer)
 
 source(file = "Code/theme_black_code.R")
+theme_set(theme_classic())
 
 # Set preferences so I can see all my columns
 rstudioapi::writeRStudioPreference("data_viewer_max_columns", 1000L)
@@ -25,13 +26,14 @@ rstudioapi::writeRStudioPreference("data_viewer_max_columns", 1000L)
 
 # Load data
 # And do a million manipulations......
-meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
+meta_full <- read_csv("Output/Data/march_meta.csv") %>%
   mutate(sd_treatment = replace_na(sd_treatment, 999), # assigning a dummy to replace
          sd_control = replace_na(sd_control, 999)) %>% # assigning a dummy to replace
   mutate(sd_treatment = ifelse(sd_treatment == 999, se_treatment*sqrt(treatment_n), sd_treatment), # replacing that dummy with the estimated SD
          sd_control = ifelse(sd_control == 999, se_control*sqrt(control_n), sd_control),# replacing that dummy with the estimated SE
          natural = as.factor(natural),
          abs_lat = abs(lat_dec), # creating an absolute value lat
+         log_nut = log(background_nut),
          climate2 = factor(ifelse(abs_lat <= 23.45, "Tropics",
                            ifelse(abs_lat <= 35, "Subtropics",
                                   ifelse(abs_lat <= 60, "Temperate",
@@ -57,11 +59,9 @@ meta_full <- read_csv("Output/Data/nov_meta.csv") %>%
 ##### I think I need to manually exclude the negative means because it's still calculating effect sizes for those
 meta_no_neg <- meta_full %>%
   filter(mean_control > 0) %>%
-  filter(mean_treatment > 0) %>%
-  filter(paper_num != 23) %>% # Remove influential study
-  filter(paper_num != 31) # Remove influential study
+  filter(mean_treatment > 0)
 
-# We lose 5 rows when we remove 0's and 7 when we remove negatives (12 total)
+# We lose 5 rows when we remove 0's and 4 when we remove negatives (9 total)
 # should I switch to Hedges g????
 # Should I add like 0.0000000000001 to all the 0's?
  # NO DO NOT DO THIS IT RUINS EVERYTHING EVERY STATISTICAL ANALYSIS BECOMES P = 0.99
@@ -87,21 +87,21 @@ meta_rejected <- read_csv("Output/Data/rejected_papers.csv") %>%
                                          ifelse(abs_lat <= 60, "Temperate",
                                                 "Polar"))),
                            levels = c("Tropics", "Subtropics", "Temperate", "Polar"))) %>%
-  select(author, title, year, lat_dec, long_dec, climate_zone, climate2)
+  dplyr::select(author, title, year, lat_dec, long_dec, climate_zone, climate2)
 
 meta_all_papers <- meta_reduced %>%
-  select(author, title, year, lat_dec, long_dec, climate_zone, climate2) %>%
+  dplyr::select(author, title, year, lat_dec, long_dec, climate_zone, climate2) %>%
   rbind(meta_rejected) # df with all the papers I'm using and the papers I can't use but that still mostly meet the criteria
 
 # Add chla data to orig meta dataframe  -------
 # this file was written in the Chla_extraction.R code file
-chla_all_values <- read_csv("Output/Data/all_extracted_chla.csv") 
+chla_all_values <- read_csv("Output/Data/all_extracted_chla_updated.csv") 
 
 meta_chl <- meta %>%
   left_join(chla_all_values, by = "indiv")
 
 # What's the max and min chla value?
-max <- max(meta_chl$chla_est) # 21.48487
+max <- max(meta_chl$chla_est) # 26.73629
 min<- min(meta_chl$chla_est) # 0.05139377
 
 # How big should each bin be?
@@ -133,7 +133,11 @@ meta_final <- meta_chl %>%
          chla_bin_small = factor(ifelse(chla_est <= upper_bin_low, "Low",
                                   ifelse(chla_est <= upper_bin_mid, "Medium",
                                          "High")),
-                           levels = c("Low", "Medium", "High")))
+                           levels = c("Low", "Medium", "High"))) %>%
+  rowwise() %>%
+  mutate(prov_N_treat = sum(nh4_treatment, no3_treatment, total_nitrogen_treatment, na.rm = TRUE),
+         prov_N_cont = sum(nh4_control, no3_control, total_nitrogen_control, na.rm = TRUE),
+         added_N = prov_N_treat - prov_N_cont)
 
 # Graphing --------
 # Make palette
@@ -225,6 +229,19 @@ ggplot(meta_final, aes(c_taxa, pp_taxa, colour = climate2)) +
   
 # a lot of bivalve papers coming out of temperate regions
 
+# Looking at background nutrients and temperature and provisioning ------
+
+ggplot(meta_final, aes(abs_lat, background_nut)) +
+  geom_point() +
+  geom_smooth(method = lm)
+
+ggplot(meta_final, aes(abs_lat, temp)) +
+  geom_point() +
+  geom_smooth(method = lm)
+
+ggplot(meta_final, aes(background_nut, chla_est)) +
+  geom_point(aes(colour = climate2)) +
+  geom_smooth(method = lm)
 
 # Multilevel models ------
 # Link to book with help:
@@ -249,7 +266,7 @@ summary(model_lat_paper)
 
 
 # Look at Test of Moderators to determine whether there are significant differences between the subgroups
-# p-value is 0.2969 so NO, there is NO difference!
+# p-value is 0.6181 so NO, there is NO difference!
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
 # Graph lat ------
@@ -317,6 +334,7 @@ model_chla_paper_est <- rma.mv(yi = yi,
                                test = "t")
 
 summary(model_chla_paper_est)
+# p value is 0.5450
 
 # Transformed log chl a data
 # Do this when you know that a predictor wouldn't increase the response forever (non linear)
@@ -329,6 +347,7 @@ model_chla_paper_log <- rma.mv(yi = yi,
                                random = ~ 1 | paper_num/indiv,
                                test = "t")
 summary(model_chla_paper_log)
+# p value is 0.9213
 
 # Binned chl a as numeric
 model_chla_paper_numeric <- rma.mv(yi = yi,
@@ -340,6 +359,7 @@ model_chla_paper_numeric <- rma.mv(yi = yi,
                                random = ~ 1 | paper_num/indiv,
                                test = "t")
 summary(model_chla_paper_numeric)
+# p value is 0.5423
 
 # Binned categorical chl a
 model_chla_paper_bin <- rma.mv(yi = yi,
@@ -352,7 +372,7 @@ model_chla_paper_bin <- rma.mv(yi = yi,
                           test = "t")
 
 summary(model_chla_paper_bin)
-
+# p value is 0.0111
 
 
 AIC(model_chla_paper_numeric, model_chla_paper_bin, model_chla_paper_log, model_chla_paper_est)
@@ -434,12 +454,16 @@ model_multi <- rma.mv(yi = yi,
                                test = "t")
 
 summary(model_multi)
+# Ok test of mods is p value = 0.0194
+# chla_est is p value = 0.0039
+# lat is p value = 0.8757
+# and interaction is p value = 0.0027
 
 # check for colinearity
 vif(model_multi) # run this on the model without an interaction
 # value of 1 means they're not correlated with any other variables
 # higher value = greater correlation
-# values of more than 4 or 5 are regarded as moderate - hihg
+# values of more than 4 or 5 are regarded as moderate - high
 # values of 10+ are very high
 
 # OKKKKKKK so basically there's an interaction between lat and chl a ????
@@ -477,11 +501,11 @@ mean_lat_chla <- meta_final %>%
 
 lat_values <- data.frame(chla_est = c(seq(from = 0.09748242, to = 1.522176, length.out = 20),
                                      seq(from = 0.05139377, to = 6.724741, length.out = 20),
-                                     seq(from = 0.85469812, to = 21.484869, length.out = 20),
+                                     seq(from = 0.85469812, to = 26.736286, length.out = 20),
                                      seq(from = 0.44598898, to = 0.445989, length.out = 20)),
-                         abs_lat = c(rep(17.45767, times = 20), 
-                                     rep(26.34486, times = 20), 
-                                     rep(45.34404, times = 20), 
+                         abs_lat = c(rep(17.42045, times = 20), 
+                                     rep(26.54635, times = 20), 
+                                     rep(48.00235, times = 20), 
                                      rep(74.21667, times = 20))) %>%
   mutate(`chla_est:abs_lat` = chla_est*abs_lat) %>%
   as.matrix()
@@ -508,17 +532,17 @@ ggplot() +
   geom_hline(yintercept=0, color="white", linetype="dashed") +
   theme_black() +
   xlim(c(0, 21.5)) + ylim(c(-1, 3.2)) +
-  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 28", 
-                                                     "Subtropics n = 59",
-                                                     "Temperate n = 45", 
+  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 37", 
+                                                     "Subtropics n = 64",
+                                                     "Temperate n = 70", 
                                                      "Polar n = 2")) +
-  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 28", 
-                                                   "Subtropics n = 59",
-                                                   "Temperate n = 45", 
+  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 37", 
+                                                   "Subtropics n = 64",
+                                                   "Temperate n = 70", 
                                                    "Polar n = 2")) 
 
-ggsave("Output/Figures/interaction_effects", device = "png",
-     height = 9, width = 16, dpi = 400)
+#ggsave("Output/Figures/interaction_effects", device = "png",
+#     height = 9, width = 16, dpi = 400)
 
 # Just plot tropics
 trop_predict <- lat_chla_predict %>%
@@ -536,17 +560,17 @@ ggplot() +
   geom_hline(yintercept=0, color="white", linetype="dashed") +
   theme_black() +
   xlim(c(0, 21.5)) + ylim(c(-1, 3.2))+
-  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 28", 
-                                                     "Subtropics n = 59",
-                                                     "Temperate n = 45", 
+  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 37", 
+                                                     "Subtropics n = 64",
+                                                     "Temperate n = 70", 
                                                      "Polar n = 2")) +
-  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 28", 
-                                                   "Subtropics n = 59",
-                                                   "Temperate n = 45", 
+  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 37", 
+                                                   "Subtropics n = 64",
+                                                   "Temperate n = 70", 
                                                    "Polar n = 2")) 
 
-ggsave("Output/Figures/interaction_effects_trop", device = "png",
-     height = 9, width = 16, dpi = 400)
+#ggsave("Output/Figures/interaction_effects_trop", device = "png",
+#     height = 9, width = 16, dpi = 400)
 
 # plot just tropics and subtropics
 trop_sub_predict <- lat_chla_predict %>%
@@ -568,17 +592,17 @@ ggplot() +
   geom_hline(yintercept=0, color="white", linetype="dashed") +
   theme_black() +
   xlim(c(0, 21.5)) + ylim(c(-1, 3.2)) +
-  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 28", 
-                                                     "Subtropics n = 59",
-                                                     "Temperate n = 45", 
+  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 37", 
+                                                     "Subtropics n = 64",
+                                                     "Temperate n = 70", 
                                                      "Polar n = 2")) +
-  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 28", 
-                                                   "Subtropics n = 59",
-                                                   "Temperate n = 45", 
+  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 37", 
+                                                   "Subtropics n = 64",
+                                                   "Temperate n = 70", 
                                                    "Polar n = 2")) 
 
-ggsave("Output/Figures/interaction_effects_trop_sub", device = "png",
-     height = 9, width = 16, dpi = 400)
+#ggsave("Output/Figures/interaction_effects_trop_sub", device = "png",
+#     height = 9, width = 16, dpi = 400)
 
 # plot tropics, subtropics, and temperate
 trop_sub_temp_predict <- lat_chla_predict %>%
@@ -595,18 +619,18 @@ ggplot() +
   labs(x = expression(paste(Chlorophyll~a~(mg/m^{2}))), y = "Effect Size", colour = "Climate", fill = "Climate") +
   geom_hline(yintercept=0, color="white", linetype="dashed") +
   theme_black() +
-  xlim(c(0, 21.5)) + ylim(c(-1, 3.2))+
-  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 28", 
-                                                     "Subtropics n = 59",
-                                                     "Temperate n = 45", 
+  xlim(c(0, 21.5)) + ylim(c(-1, 3.2)) +
+  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 37", 
+                                                     "Subtropics n = 64",
+                                                     "Temperate n = 70", 
                                                      "Polar n = 2")) +
-  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 28", 
-                                                   "Subtropics n = 59",
-                                                   "Temperate n = 45", 
+  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 37", 
+                                                   "Subtropics n = 64",
+                                                   "Temperate n = 70", 
                                                    "Polar n = 2")) 
 
-ggsave("Output/Figures/interaction_effects_trop_sub_temp", device = "png",
-     height = 9, width = 16, dpi = 400)
+#ggsave("Output/Figures/interaction_effects_trop_sub_temp", device = "png",
+#    height = 9, width = 16, dpi = 400)
 
 # Graph log interaction model ------
 # make own df of lat values
@@ -666,6 +690,63 @@ model_multi2 <- rma.mv(yi = yi,
 
 summary(model_multi2)
 
+# Background nutrients multilevel model-----
+model_nut_lat_paper <- rma.mv(yi = yi,
+                          V = vi,
+                          slab = author,
+                          data = meta_final,
+                          method = "REML",
+                          mods = ~ background_nut*abs_lat,
+                          random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                          test = "t")
+
+summary(model_back_paper)
+# 0.3141
+
+# Graph background nutrients ------
+nut_predict <- as.data.frame(predict(model_back_paper,
+                                      addx=TRUE)) %>%
+  tibble::rownames_to_column("author") %>%
+  rename(background_nut = X.background_nut) 
+
+# set seed because otherwise I'll get different colours each time
+set.seed(1235)
+
+# plot predicted values as line, jitter observed effect sizes
+ggplot() +
+  geom_line(data = nut_predict, aes(background_nut, pred), colour = "white", size = 1.5) +
+  geom_jitter(data = meta_final, aes(background_nut, yi, colour = climate2)) +
+  geom_ribbon(data = nut_predict, aes(background_nut, pred, ymin = ci.lb, ymax = ci.ub), fill = "white", alpha = .1) +
+  theme_classic() +
+  labs(x = "Background nutrients (umol/L)", y = "Effect Size", colour = "Climate Zone") +
+  geom_hline(yintercept=0, color="white", linetype="dashed") +
+  theme_black() +
+  scale_colour_manual(values = rev(pal2))
+
+#ggsave("Output/Figures/background_nut_effect", device = "png",
+#     height = 9, width = 16, dpi = 400)
+
+# Effect of temperature multilevel model-----
+model_temp_paper <- rma.mv(yi = yi,
+                           V = vi,
+                           slab = author,
+                           data = meta_final,
+                           method = "REML",
+                           mods = ~ temp * background_nut * abs_lat,
+                           random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                           test = "t")
+
+summary(model_temp_paper)
+# Oh? temperature has an effect?
+
+# check for colinearity
+vif(model_temp_paper) # run this on the model without an interaction
+# value of 1 means they're not correlated with any other variables
+# higher value = greater correlation
+# values of more than 4 or 5 are regarded as moderate - high
+# values of 10+ are very high
+
+# OK so there's some colinearity apparently 4.1667 is moderate
 
 # Natural-ness of experiment multilevel model-----
 model_nat_paper <- rma.mv(yi = yi,
@@ -912,7 +993,7 @@ funnel.rma(model_nat_paper)
 # A bit of a right skew
 
 fsn(yi = yi, vi = vi, data = meta_final, type="Rosenthal") #file drawer analysis (missing studies have an effect size = 0)
-# Fail-safe N: 35,685
+# Fail-safe N: 44,981
 # That seems like quite a large number?????
 
 # Check for influential studies? ------
@@ -926,15 +1007,14 @@ hist(max_obs$num_obs)
 
 total_num_obs <- sum(max_obs$num_obs)
 
-# there's 169 data points
-# so 10% of that would be 16.9 observations per paper
-# so that would mean that paper # 17 and #23 and #31 have too many. try running things without those two
+# there's 173 data points
+# so 10% of that would be 17.3 observations per paper
+# so that would mean that paper # 17 and #23 and #29 have too many. try running things without those two
 
 # Ok so let's remove those papers one at a time and rerun the stats???
 
 meta_drop <- meta_final %>%
-  filter(paper_num != 23) %>%
-  filter(paper_num != 31)
+  filter(paper_num != 29) 
 
 # removing 31 really changes the lat result
   # contributed the highest 2 effect sizes
@@ -954,10 +1034,11 @@ model_lat_drop <- rma.mv(yi = yi,
 
 summary(model_lat_drop)
 
-# Removed # 17, p-value is 0.3459 versus 0.2592
-# Removed # 23, p-value is 0.7198 versus 0.2592
-# Removed # 31, p-value is 0.0613 versus 0.2592
-# Removed # 23 and 31, p-value is 0.2969 versus 0.2592
+# Removed # 17, p-value is 0.7132 versus 0.6181
+# Removed # 23, p-value is 0.6927 versus 0.6181
+# Removed # 31, p-value is 0.3172 versus 0.6181
+
+# Nothing really changes things too much
 
 # lets graph that
 lat_predict_drop <- as.data.frame(predict(model_lat_drop,
@@ -1002,10 +1083,9 @@ model_chla_drop <- rma.mv(yi = yi,
                            test = "t")
 
 summary(model_chla_drop)
-# Remove # 17 p-value is 0.1639 versus 0.1065 
-# Remove # 23 p-value is 0.8172 versus 0.1065 # BIG change
-# Remove # 31 p-value is 0.0593 versus 0.1065 
-# Removing #23 and 31 p-value is 0.5654 versus 0.1065 
+# Remove # 17 p-value is .6768 versus 0.5450 
+# Remove # 23 p-value is 0.0806 versus 0.5450 # OK BIG CHANGE
+# Remove # 29 p-value is 0.4960 versus 0.5450 
 
 
 chla_predict_drop <- as.data.frame(predict(model_chla_drop,
@@ -1039,7 +1119,7 @@ model_multi_drop <- rma.mv(yi = yi,
                       slab = author,
                       data = meta_drop,
                       method = "REML",
-                      mods = ~ chla_est + abs_lat,
+                      mods = ~ chla_est * abs_lat,
                       random = ~ 1 | paper_num/indiv,
                       test = "t")
 
@@ -1048,13 +1128,32 @@ summary(model_multi_drop)
 # check for colinearity
 vif(model_multi_drop) # run this on the model without an interaction
 
-# Remove # 17 p-value is 0.0714 versus 0.0862 
-# Remove # 23 p-value is 0.3269 versus 0.0862
+# Remove # 17 p-value is 0.0041 versus p-val = 0.0194 
+# Remove # 23 p-value is 0.0970 versus p-val = 0.0194
   # but the p val for the chl a, lat, and interaction are still basically the same
-# Remove # 31 p-value is 0.0571 versus 0.0862 
+# Remove # 29 p-value is 0.0241 versus p-val = 0.0194 
 
 # OK so it looks like I might not need to drop #23 ??????
 
+# Rerun background nutrients multilevel model-----
+
+meta_drop <- meta_final %>%
+  filter(paper_num != 29)
+
+model_back_paper <- rma.mv(yi = yi,
+                           V = vi,
+                           slab = author,
+                           data = meta_drop,
+                           method = "REML",
+                           mods = ~ background_nut,
+                           random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                           test = "t")
+
+summary(model_back_paper)
+# 0.3141
+# Remove # 17 p-value is 0.2242 versus p-val =  0.3141
+# Remove # 23 p-value is 0.1181 versus p-val =  0.3141
+# Remove # 29 p-value is 0.7017 versus p-val =  0.3141
 
 # Rerun natural-ness of experiment -----
 re_model_nat_paper <- rma.mv(yi = yi,
