@@ -139,6 +139,7 @@ meta_final <- meta_chl %>%
          sum_all_N_cont = sum(nh4_control, no3_control, total_nitrogen_control, na.rm = TRUE),
          added_N = na_if((sum_all_N_treat - sum_all_N_cont), 0),
          added_nh4 = na_if((sum(nh4_treatment, na.rm = TRUE) - sum(nh4_control, na.rm = TRUE)), 0)) %>%
+  ungroup() %>%
   mutate(pp_group = ifelse(pp_taxa == "CA" | pp_taxa == "FA", "Algae",
                     ifelse(pp_taxa == "En" | pp_taxa == "Co", "Coral",
                     ifelse(pp_taxa == "P", "Phytoplankton",
@@ -146,8 +147,11 @@ meta_final <- meta_chl %>%
                     "Plants"))))) %>%
   mutate(pp_group = ifelse(pp_group == "Plants" & pp_phyla == "Cnidaria", "Coral",
                            pp_group)) %>%
-  filter(paper_num != 17) # influential study
-
+  mutate(lat_stand = base::scale(abs_lat),
+         background_nut_stand = scale(background_nut),
+         added_N_stand = scale(added_N),
+         temp_stand = scale(temp))
+  
 # Graphing --------
 # Make palette
 pal <- pnw_palette("Bay", 6)
@@ -197,7 +201,7 @@ ggplot(meta_final, aes(x = abs_lat, y = chla_est, colour = climate_zone)) +
 
 
 # take a look at the distribution of primary producers across latitudes
-ggplot(meta_final, aes(pp_taxa, climate2, colour = climate2)) +
+ggplot(meta_smol, aes(pp_taxa, climate2, colour = climate2)) +
   geom_jitter(size = 4) +
   theme_black() +
   theme(legend.position = "none") +
@@ -267,9 +271,14 @@ ggplot(meta_final, aes(background_nut, chla_est)) +
 # Look at Test of Moderators to determine whether there are significant differences between the subgroups
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
-meta_final <- meta_final %>%
-  filter(prov_units == "umol/L") %>%
-  filter(added_N < 10) # Filter out the super high ammonium estimates that are dragging the line down?
+# Ok so if you want to AIC all these models, you need to limit them to the same data, so we'll rewrite meta_final 
+
+# meta_final <- meta_final %>%
+#   filter(prov_units == "umol/L") %>%
+#   filter(added_N < 10) %>% # Filter out the super high ammonium estimates that are dragging the line down?
+#   drop_na(background_nut_stand) %>%
+#   drop_na(temp_stand) %>%
+#   drop_na(added_N_stand) 
 
 # Null model ------
 
@@ -292,7 +301,7 @@ model_lat <- rma.mv(yi = yi,
               slab = author,
               data = meta_final,
               method = "REML",
-              mods = ~ abs_lat,
+              mods = ~ lat_stand,
               random = ~ 1 | paper_num/indiv, 
               test = "t")
 
@@ -352,8 +361,8 @@ ggplot() +
   theme_black() +
   theme(legend.position="none")
 
-#ggsave("Output/Figures/abs_lat_effect", device = "png",
-#     height = 9, width = 16, dpi = 400)
+ggsave("Output/Figures/abs_lat_effect", device = "png",
+     height = 9, width = 16, dpi = 400)
 
 
 # Background nutrients multilevel model-----
@@ -390,8 +399,8 @@ ggplot() +
   theme_black() +
   scale_colour_manual(values = rev(pal2))
 
-#ggsave("Output/Figures/background_nut_effect", device = "png",
-#     height = 9, width = 16, dpi = 400)
+ggsave("Output/Figures/background_nut_effect", device = "png",
+     height = 9, width = 16, dpi = 400)
 
 # Added nitrogen multilevel model ------
 # Only looking at added nitrogen where they measured it in umol/L
@@ -438,13 +447,13 @@ ggplot() +
   geom_jitter(data = meta_umolL, aes(added_N, yi, colour = climate2)) +
   geom_ribbon(data = N_predict, aes(added_N, pred, ymin = ci.lb, ymax = ci.ub), fill = "white", alpha = .1) +
   theme_classic() +
-  labs(x = "Added Nitrogen (umol/L)", y = "Effect Size", colour = "Climate Zone") +
+  labs(x = "Added nitrogen (umol/L)", y = "Effect Size", colour = "Climate Zone") +
   geom_hline(yintercept=0, color="white", linetype="dashed") +
   theme_black() +
   scale_colour_manual(values = rev(pal2))
 
 #ggsave("Output/Figures/added_N_effect", device = "png",
-#       height = 9, width = 16, dpi = 400)
+# height = 9, width = 16, dpi = 400)
 
 # This shows that for the most part, added N was around 1-10
 # Should I just cut the outliers that were above 10..? It's just that one mussel vs oyster vs salmon vs bass paper, the three high points are three of the four experiments
@@ -452,6 +461,7 @@ meta_big_pee <- meta_umolL %>%
   filter(added_N > 10)
 
 # Temperature multilevel model-----
+# Temperature and abs_lat are correlated 5.0679
 model_temp <- rma.mv(yi = yi,
                      V = vi,
                      slab = author,
@@ -515,6 +525,11 @@ nat_n <- meta_final %>%
 intercept_nat <- coef(summary(model_exp_design))[1,1] # extract the intercept
 
 # Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+
+# When you add intercept to the other estimates, the p-value asks whether the CI’s intercept the intercept, not whether they intercept 0
+
+# Can’t just add intercept to CI, works for the estimates but not the CI
+# Try using emmeans for this
 
 # edit bin labels
 nat_effect_sum <- coef(summary(model_exp_design)) %>%
@@ -640,61 +655,65 @@ summary(model_pp)
 
 # OK so producer ID matters, algae show larger effects vs the rest
 # Ok phytoplankton are the best distributed let's just look at them for a sec
-phyto <- meta_final %>%
-  filter(pp_taxa == "P")
+algae <- meta_final %>%
+  filter(pp_group == "Algae")
 # I just looked at the phytoplankton and the algae
 # Both had the same trend
 
-# OKKKK does phyto effect vary by lat
+# OKKKK does algae effect vary by lat
 p_lat <- rma.mv(yi = yi,
                    V = vi,
                    slab = author,
-                   data = phyto,
+                   data = algae,
                    method = "REML",
                    mods = ~ abs_lat,
                    random = ~ 1 | paper_num/indiv,
                    test = "t")
 
-summary(p_lat) # NO, p-val = 0.7650
+summary(p_lat) # NO, p-val = 0.2787
 
-# OKKKK does phyto effect vary by back nut
+# OKKKK does algae effect vary by back nut
 p_back <- rma.mv(yi = yi,
                 V = vi,
                 slab = author,
-                data = phyto,
+                data = algae,
                 method = "REML",
                 mods = ~ background_nut,
                 random = ~ 1 | paper_num/indiv,
                 test = "t")
 
-summary(p_back) # YES, p-val = 0.0072
-# Larger effect of pee on phytoplankton with higher levels of background nutrients
+summary(p_back) # YES, p-val = 0.0738
+# Larger effect of pee on algae with higher levels of background nutrients
 
-# OKKKK does phyto effect vary by added nut or added nh4
+# OKKKK does algae effect vary by added nut or added nh4
 # Use meta_umolL because that only has the measured nitrogen added in umol/L
+
+algae_umol <- meta_umolL %>%
+  filter(pp_group == "Algae")
+#sample size is only 10 we can't do this
 
 p_added_N <- rma.mv(yi = yi,
                  V = vi,
                  slab = author,
-                 data = meta_umolL,
+                 data = algae_umol,
                  method = "REML",
                  mods = ~ added_N,
                  random = ~ 1 | paper_num/indiv,
                  test = "t")
 
-summary(p_added_N) # NO, p-val = 0.3157
+summary(p_added_N) # NO, p-val = 0.7897
 
-# OKKKK does phyto effect vary by temperature
+# OKKKK does algae effect vary by temperature
 p_temp <- rma.mv(yi = yi,
                  V = vi,
                  slab = author,
-                 data = phyto,
+                 data = algae,
                  method = "REML",
                  mods = ~ temp,
                  random = ~ 1 | paper_num/indiv,
                  test = "t")
 
-summary(p_temp) # NO, p-val = 0.6114
+summary(p_temp) # NO, p-val = 0.1676
 
 # OK SO 
 
@@ -711,7 +730,7 @@ intercept_pp <- coef(summary(model_pp))[1,1] # extract the intercept
 # Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
 
 pp_effect_sum <- coef(summary(model_pp)) %>%
-  mutate(pp_group = factor(c("Algae", "Coral", "Phytoplankton", "Plants")),
+  mutate(pp_group = factor(c("Algae", "Coral", "Phytoplankton", "Plants")), 
          effect = ifelse(pp_group != "Algae", estimate + intercept_pp,
                          intercept_pp),
          ci.lb = ifelse(pp_group != "Algae", ci.lb + intercept_pp,
@@ -728,7 +747,7 @@ pp_n_labs <- c("n = 26", "n = 47", "n = 53", "n = 47")
 ggplot(pp_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = pp_group)) +
   geom_point(size = 6) +
   geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="white", linetype="dashed") +
+  geom_vline(xintercept = intercept_pp, color="white", linetype="dashed") +
   theme_classic() +
   labs(x = "Effect size", y = " ") +
   scale_y_continuous(breaks = 1:length(pp_labs),
@@ -741,7 +760,7 @@ ggplot(pp_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, col
   theme(legend.position = "none")
 
 #ggsave("Output/Figures/effects_pp", device = "png",
-#       height = 9, width = 8, dpi = 400)
+#       height = 9, width = 16, dpi = 400)
 
 
 # Interaction latitude x background nutrients -----
@@ -755,6 +774,7 @@ model_lat_back <- rma.mv(yi = yi,
                            test = "t")
 
 summary(model_lat_back)
+vif(model_lat_back)
 # meta_final --> p-val = 0.0480
 # meta_umolL --> p-val = 0.1055
 
@@ -894,6 +914,7 @@ vif(model_temp_back) # 1.9817
 # And recorded the differences in p-values
 # And the model with added_N and background_nutrients is the best
 
+
 AIC_values <- AIC(model_null, model_lat, model_back_nutrients, model_added_N, model_temp, model_exp_design, model_act, model_pp, model_lat_back, model_added_background, model_temp_added, model_temp_back)
 # Model with added and background is the best?????????
 
@@ -903,6 +924,312 @@ BIC_values <- BIC(model_null, model_lat, model_back_nutrients, model_added_N, mo
 # OK SHIT SHIT SHIT now when I use the meta_umolL dataset for all the models the AIC is all jumbled
 # And lots of things are significant that were not before
 # OH GOD
+
+# One model to rule them all ------
+# If goal is to explain patterns, and sample size is big enough to include all the predictors, then just throw them all in the same model. 
+# Standardize the numeric predictors, then compare standardized effect sizes
+# AIC is good for when you can’t put everything in the same model, I might not be able to put temperature and lat in the same model
+# But I lose like 100 papers when I drop all the NA’s for provisioned nutrients
+# And even when I drop added_N, which increases the sample size, then the # main effect is basically the same
+# Added_N doesn't seem to matter as a mod? No matter how I run it, it has a teeeeeny effect and it's not significant
+
+model_all <- rma.mv(yi = yi,
+                          V = vi,
+                          slab = author,
+                          data = meta_smol,
+                          method = "REML",
+                          mods = ~ lat_stand + background_nut_stand + added_N_stand + temp_stand + natural + pp_group + lat_stand:background_nut_stand + added_N_stand:background_nut_stand +  temp_stand:background_nut_stand + temp_stand:added_N_stand,
+                          random = ~ 1 | paper_num/indiv, 
+                          test = "t")
+
+summary(model_all)
+vif(model_all) # Lat and temp are correlated
+# intercept tells me what the value is at the natural 1 pp group algae and mean of all other variables
+# looking at the full data (took out all added_N terms) the coefficients are basically hte same
+# so we can look at the reduced data and it's saying something very similar to the full data
+
+# In general, all three ways I’ve tried to do these stats give a similar answer. Identity of the pp matters (algae has a stronger response than others), and background nutrients is weak/moderate positive effect. This makes both # Hannah and I feel better. All methods point to context dependence!
+
+# Correlation between variables
+cor(cbind(meta_final$lat_stand, meta_final$background_nut_stand, meta_final$added_N_stand, meta_final$temp_stand), use = "complete.obs")
+# so temp, lat, and background_nutrients are correlated (|value| < 0.5)
+# So maybe we should go back to AIC because we shouldn't have these three in the same model
+# BC they're correlated, there might be a generally negative relationship between lat/temp/back_nut and effect but within that slope the model things back_nut has a positive effect
+
+#### Three separate models ------
+# 1) everything in full model - temp and lat
+# 2) everything in full model - temp and back_nut
+# 3) everything in full model - back_nut and lat
+
+# Then compete them using AIC!
+
+# rational for AIC is that we can't put all three in the same model bc they mess up each other
+# AIC will tell us which of the three is best
+
+#Subset each plant type to rerun the model_all with each plant type? Or just to do algae by itself and then the rest by themselves. 
+# -might have to run each mod by itself bc low sample size
+# 
+
+# Except I'm going to compete the "full" model with lat vs "full" with temp vs "full" with background_nutrients
+
+# Want all models to use the same data!
+# this df filters out any rows that can't be used for added_N
+meta_smol <- meta_final %>%
+ filter(prov_units == "umol/L") %>%
+ filter(added_N < 10) %>% # Filter out the super high ammonium estimates that are dragging the line down?
+ drop_na(background_nut_stand) %>%
+ drop_na(temp_stand) %>%
+ drop_na(added_N_stand) 
+
+# this df only makes sure to standardize the df between the three correlated variables, and is for use in models without added_N
+meta_smolish <- meta_final %>%
+  drop_na(background_nut_stand) %>%
+  drop_na(temp_stand) %>%
+  drop_na(added_N_stand) 
+
+model_full_lat <- rma.mv(yi = yi,
+                    V = vi,
+                    slab = author,
+                    data = meta_smol,
+                    method = "REML",
+                    mods = ~ lat_stand + added_N + natural + pp_group,
+                    random = ~ 1 | paper_num/indiv, 
+                    test = "t")
+
+summary(model_full_lat)
+
+# Full model with background_nutrients
+model_full_back_added <- rma.mv(yi = yi,
+                         V = vi,
+                         slab = author,
+                         data = meta_smol,
+                         method = "REML",
+                         mods = ~ background_nut_stand + added_N + natural + pp_group,
+                         random = ~ 1 | paper_num/indiv, 
+                         test = "t")
+
+summary(model_full_back_added)
+
+model_full_back <- rma.mv(yi = yi,
+                                V = vi,
+                                slab = author,
+                                data = meta_smol,
+                                method = "REML",
+                                mods = ~ background_nut_stand  + natural + pp_group,
+                                random = ~ 1 | paper_num/indiv, 
+                                test = "t")
+
+summary(model_full_back)
+
+
+AIC(model_full_back, model_full_back_added)  # make sure to run this with meta_smol for both models
+# They're exactly the same. adding added_N doesn't improve the model at all so I want to drop it to increase sample size..?
+# The model with added_N and a smaller sample size comes out looking EXACTLY like the model without added_N and a larger sample size. Let's keep added_N for now
+# The only thing that changes is that coefficient for back_nut becomes signif when we get rid of added_N and increase sample size
+
+
+# Full model with temperature
+model_full_temp <- rma.mv(yi = yi,
+                          V = vi,
+                          slab = author,
+                          data = meta_smol,
+                          method = "REML",
+                          mods = ~ temp_stand + added_N + natural + pp_group,
+                          random = ~ 1 | paper_num/indiv, 
+                          test = "t")
+
+summary(model_full_temp)
+
+# Null model
+model_full_null <- rma.mv(yi = yi,
+                          V = vi,
+                          slab = author,
+                          data = meta_smol,
+                          method = "REML",
+                          mods = ~ 1,
+                          random = ~ 1 | paper_num/indiv, 
+                          test = "t")
+
+summary(model_full_null)
+
+# 
+AIC(model_full_lat, model_full_back_added, model_full_temp, model_full_null)
+
+# So the model with background nutrients is the best model according to AIC but there's still moderate support for all three of lat, temp, and background nutrients
+# Still the best model even if I get rid of added_N which increases the sample size
+# Then present the coefficient plot of the best model, but include the other two in the supp
+# And we still get an estimate for the effect size for everything
+# Since none of the models are better than the other, I can just chose the one I'm most interested in and throw the other two in the supp
+# But.... I'm interested in both lat and background nut
+# Tried running interaction models between added_N and lat/temp/back_nut and the interaction didn't change anything so I'll leave it out for simplicity. 
+
+# I'm tempted to keep the background
+# Sort of tempted to drop added_N because it restricts the sample size so much and it literally doesn't change the AIC or effects at all and has a teeeeny effect size itself...
+
+# AIC tells you which collection of variables best explain the data
+# And then looking at the p-values of those variables tells you whether ___
+# Hannah advocates for just looking at the effect size (coefficient)
+
+# 3 plots: --------
+# Plot with pp_groups coefficient + CI
+# Plot with natural coefficient + CI
+# Plot with coefficient + CI of each continuous variable
+
+# Maybe some help here?
+# https://www.metafor-project.org/doku.php/tips:meta_regression_with_log_rr
+
+# this is the final model i swear to god please let this be the final model
+model_full_back_added <- rma.mv(yi = yi,
+                                V = vi,
+                                slab = author,
+                                data = meta_smol,
+                                method = "REML",
+                                mods = ~ background_nut_stand + added_N + natural + pp_group,
+                                random = ~ 1 | paper_num/indiv, 
+                                test = "t")
+
+summary(model_full_back_added)
+
+pred <- as.data.frame(predict(model_full_back_added, newmods=c(1,0), transf=exp, digits=2))
+coef <- coef(summary(model_full_back_added))
+
+# Plot PP first -------
+# Graph primary producer
+# How many papers in each bin?
+pp_n <- meta_smol %>%
+  group_by(pp_group) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:4)
+
+# Pull coefficient estimates so I can graph them
+intercept_pp <- coef(summary(model_full_back_added))[1,1] # extract the intercept
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+
+pp_effect_sum <- coef(summary(model_full_back_added)) %>%
+  slice(-(2:7)) %>%
+  mutate(pp_group = factor(c("Algae", "Coral", "Phytoplankton", "Plants")), 
+         effect = ifelse(pp_group != "Algae", estimate + intercept_pp,
+                         intercept_pp), # add intercept to the estimated coefficient
+         ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
+         ci.up_adjust = effect + (1.96*se)) %>% 
+  left_join(pp_n, by = "pp_group")
+
+
+# GRAPH THIS?
+pp_labs <- c("Algae", "Coral", "Phytoplankton", "Plants")
+
+pp_n_labs <- c("n = 15", "n = 16", "n = 43", "n = 8")
+
+ggplot(pp_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb_adjust, xmax = ci.up_adjust, colour = pp_group)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept = intercept_pp, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size", y = " ") +
+  scale_y_continuous(breaks = 1:length(pp_labs),
+                     labels = pp_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(pp_n_labs),
+                                         labels = pp_n_labs)) +
+  scale_colour_manual(values = rev(pal_star)) +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+#ggsave("Output/Figures/pres_pp", device = "png",
+#     height = 9, width = 16, dpi = 400)
+
+
+# Graph experimental design -----
+# How many papers in each bin?
+nat_n <- meta_smol %>%
+  group_by(natural) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:5,
+         nat_bin = factor(c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm"),
+                          levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")))
+
+# Pull coefficient estimates so I can graph them
+intercept_nat <- coef(summary(model_full_back_added))[1,1] # extract the intercept
+
+# When you add intercept to the other estimates, the p-value asks whether the CI’s intercept the intercept, not whether they intercept 0
+
+# Can’t just add intercept to CI, works for the estimates but not the CI
+# Try using emmeans for this
+
+# edit bin labels
+nat_effect_sum <- coef(summary(model_full_back_added)) %>%
+  slice(-(2:3)) %>%
+  slice(-(6:8)) %>%
+  mutate(nat_bin = factor(c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")), # add intercept to the estimated coefficient
+         effect = ifelse(nat_bin != "Field: unstocked", estimate + intercept_nat,
+                         intercept_nat), # add intercept to the estimated coefficient
+         ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
+         ci.up_adjust = effect + (1.96*se)) %>% 
+  left_join(nat_n, by = "nat_bin")
+
+# GRAPH THIS?
+nat_labs <- c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")
+
+nat_n_labs <- c("n = 28", "n = 2", "n = 12", "n = 2", "n = 38")
+
+ggplot(nat_effect_sum, aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = nat_bin)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=intercept_nat, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size", y = " ") +
+  scale_y_continuous(breaks = 1:length(nat_labs),
+                     labels = nat_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(nat_n_labs),
+                                         labels = nat_n_labs)) +
+  scale_colour_manual(values = rev(pal_star)) +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+# ggsave("Output/Figures/pres_nat", device = "png",
+#      height = 9, width = 16, dpi = 400)
+
+
+# Graph continuous variables -----
+# How many papers in each bin?
+
+# Pull coefficient estimates so I can graph them
+lat_effect_sum <- coef(summary(model_full_lat)) %>%
+  slice(-(4:10)) %>%
+  slice(-1)%>%
+  rownames_to_column() 
+
+temp_effect_sum <- coef(summary(model_full_temp)) %>%
+  slice(-(4:10)) %>%
+  slice(-1)%>%
+  rownames_to_column() %>%
+  rbind(lat_effect_sum)
+
+cont_effect_sum <- coef(summary(model_full_back_added)) %>%
+  slice(-(4:10)) %>%
+  slice(-1)%>%
+  rownames_to_column() %>%
+  rbind(temp_effect_sum)
+
+
+# GRAPH THIS?
+cont_labs <- c("Added nitrogen", "Background nutrients", "Absolute latitude", "Temperature")
+
+ggplot(cont_effect_sum, aes(y = rowname, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size", y = " ")  +
+  theme_black()+ 
+  theme(legend.position = "none") +
+  scale_y_discrete(labels = cont_labs) +
+  scale_colour_manual(values = rev(pal_star))
+
+# ggsave("Output/Figures/pres_cont", device = "png",
+#      height = 9, width = 16, dpi = 400)
 
 # Independence and Bias -------
 
@@ -914,16 +1241,19 @@ funnel.rma(model_exp_design)
 funnel.rma(model_act)
 funnel.rma(model_pp)
 
+# full model 
+funnel.rma(model_full_back)
+
 # A bit of a right skew
 
-fsn(yi = yi, vi = vi, data = meta_final, type="Rosenthal") #file drawer analysis (missing studies have an effect size = 0)
-# Fail-safe N: 44,981
+fsn(yi = yi, vi = vi, data = meta_smol, type="Rosenthal") #file drawer analysis (missing studies have an effect size = 0)
+# Fail-safe N: 13,962
 # That seems like quite a large number?????
 
 # Check for influential studies? ------
 
 # make a df where each row is a paper, and num_obs is the number of observations that paper contributed
-max_obs <- meta_final %>%
+max_obs <- meta_smol %>%
   group_by(paper_num) %>%
   dplyr::summarise(num_obs = as.numeric(n()))
 
@@ -932,11 +1262,62 @@ hist(max_obs$num_obs)
 total_num_obs <- sum(max_obs$num_obs)
 
 # there's 173 data points
-# so 10% of that would be 17.3 observations per paper
+# Only 82 if I just look at meta_smol
+# so 10% of that would be 17.3 observations per paper (or 8.2 obs per paper....)
 # so that would mean that paper # 17 and #23 and #29 have too many. try running things without those two
+# For meta_smol it's #17, #28 and #28
 
 # Ok so let's remove those papers one at a time and rerun the stats!
 
+# Influential with the one model to rule them all-------
+# 23 is already filtered out in meta drop so I just need to worry about # 17 and # 29
+meta_smol_drop <- meta_smol %>%
+  filter(paper_num != 29) 
+  
+# Full model with background_nutrients
+model_full_back_drop <- rma.mv(yi = yi,
+                          V = vi,
+                          slab = author,
+                          data = meta_smol_drop,
+                          method = "REML",
+                          mods = ~ background_nut_stand  + added_N_stand + natural + pp_group,
+                          random = ~ 1 | paper_num/indiv, 
+                          test = "t")
+
+summary(model_full_back_drop)
+
+# All papers
+# Test of Moderators (coefficients 2:10):
+#   F(df1 = 9, df2 = 72) = 1.7771, p-val = 0.0876
+# 
+# Model Results:
+#                         estimate    se     tval  df    pval    ci.lb    ci.ub 
+# intrcpt                  1.4118  0.9427   1.4976  72  0.1386  -0.4675   3.2911    
+# background_nut_stand     0.2029  0.1208   1.6799  72  0.0973  -0.0379   0.4437  . 
+# added_N_stand            1.8114  2.3147   0.7826  72  0.4364  -2.8028   6.4257    
+# natural2                 0.4178  0.9000   0.4642  72  0.6439  -1.3764   2.2119    
+# natural3                 0.6979  0.4530   1.5405  72  0.1278  -0.2052   1.6010    
+# natural4                 1.1629  0.6888   1.6883  72  0.0957  -0.2102   2.5360  . 
+# natural5                 0.2906  0.3656   0.7947  72  0.4294  -0.4383   1.0194    
+# pp_groupCoral           -0.1161  0.3637  -0.3191  72  0.7506  -0.8411   0.6090    
+# pp_groupPhytoplankton   -0.8409  0.3921  -2.1444  72  0.0354  -1.6226  -0.0592  * 
+# pp_groupPlants          -1.1934  0.4982  -2.3955  72  0.0192  -2.1865  -0.2003  * 
+
+# Drop # 17
+# p-val = 0.0154
+# The estimate for added nutrients becomes smaller but still not signif, back_nut effect doesn't really change
+
+# Drop # 28
+# p-val = p-val = 0.2454
+# Coefficients don't change at all!!!!
+
+# Drop # 29
+# p-val = 0.0007
+# Ugh ok. back_nut increases to 0.59, added_N estimate doubles but still not signif. The experimental design coefficients change, and nat3 and nat4 become signif different from nat1. Coral coefficient becomes positive
+# I say keep 29 because the sample size is already soooo small
+
+
+# Influential studies with single mod models --------
 meta_drop <- meta_final %>%
   filter(paper_num != 17) 
 
