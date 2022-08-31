@@ -176,7 +176,7 @@ ggplot(meta_all_papers, aes(y = climate2, fill = climate2)) +
   theme_black() + theme(legend.position = "none")
 
 
-#ggsave("Output/Figures/climate_zone_bar", device = "png",
+#ggsave("Output/Figures/climate_zone_bar.png", device = "png",
 #      height = 9, width = 16, dpi = 400)
 
 
@@ -189,7 +189,7 @@ ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
   theme(legend.position = "none") +
   ylim(c(-73, 73))
 
-#ggsave("Output/Figures/chla_lat", device = "png",
+#ggsave("Output/Figures/chla_lat.png", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
 ggplot(meta_final, aes(x = abs_lat, y = chla_est, colour = climate_zone)) +
@@ -261,7 +261,7 @@ ggplot(meta_final, aes(abs_lat, background_nut)) +
   labs(x = "Absolute Latitude", y = "Background nutrients (umol/L)") +
   theme(legend.position = "none")
 
-#ggsave("Output/Figures/abs_lat_nutrients", device = "png",
+#ggsave("Output/Figures/abs_lat_nutrients.png", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
 ggplot(meta_final, aes(abs_lat, temp)) +
@@ -890,7 +890,7 @@ ggplot() +
   theme(legend.position="none")
 
 
-#ggsave("Output/Figures/chla_est_effect", device = "png",
+#ggsave("Output/Figures/chla_est_effect.png", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
 
@@ -993,7 +993,7 @@ ggplot() +
                                                    "Temperate n = 70", 
                                                    "Polar n = 2")) 
 
-#ggsave("Output/Figures/interaction_effects", device = "png",
+#ggsave("Output/Figures/interaction_effects.png", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
 # Just plot tropics
@@ -1021,7 +1021,7 @@ ggplot() +
                                                    "Temperate n = 70", 
                                                    "Polar n = 2")) 
 
-#ggsave("Output/Figures/interaction_effects_trop", device = "png",
+#ggsave("Output/Figures/interaction_effects_trop.png", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
 # plot just tropics and subtropics
@@ -1053,7 +1053,7 @@ ggplot() +
                                                    "Temperate n = 70", 
                                                    "Polar n = 2")) 
 
-#ggsave("Output/Figures/interaction_effects_trop_sub", device = "png",
+#ggsave("Output/Figures/interaction_effects_trop_sub.png", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
 # plot tropics, subtropics, and temperate
@@ -1081,7 +1081,8 @@ ggplot() +
                                                    "Temperate n = 70", 
                                                    "Polar n = 2")) 
 
-#ggsave("Output/Figures/interaction_effects_trop_sub_temp", device = "png",
+#ggsave("Output/Figures/interaction_effects_trop_sub_temp.png", 
+#       device = "png",
 #    height = 9, width = 16, dpi = 400)
 
 
@@ -1130,7 +1131,7 @@ ggplot() +
   theme_black()
 
 
-#ggsave("Output/Figures/interaction_effects_log", device = "png",
+#ggsave("Output/Figures/interaction_effects_log.png", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
 # Chl a x cat lat interaction model ------
@@ -1290,8 +1291,8 @@ ggplot() +
   theme_black() +
   theme(legend.position="none")
 
-ggsave("Output/Figures/abs_lat_effect", device = "png",
-       height = 9, width = 16, dpi = 400)
+#ggsave("Output/Figures/abs_lat_effect.png", device = "png",
+#       height = 9, width = 16, dpi = 400)
 
 
 # Background nutrients multilevel model-----
@@ -1328,8 +1329,8 @@ ggplot() +
   theme_black() +
   scale_colour_manual(values = rev(pal2))
 
-ggsave("Output/Figures/background_nut_effect", device = "png",
-       height = 9, width = 16, dpi = 400)
+#ggsave("Output/Figures/background_nut_effect.png", device = "png",
+#       height = 9, width = 16, dpi = 400)
 
 # Added nitrogen multilevel model ------
 # Only looking at added nitrogen where they measured it in umol/L
@@ -1381,7 +1382,7 @@ ggplot() +
   theme_black() +
   scale_colour_manual(values = rev(pal2))
 
-#ggsave("Output/Figures/added_N_effect", device = "png",
+#ggsave("Output/Figures/added_N_effect.png", device = "png",
 # height = 9, width = 16, dpi = 400)
 
 # This shows that for the most part, added N was around 1-10
@@ -1424,7 +1425,7 @@ ggplot() +
   theme_black() +
   scale_colour_manual(values = rev(pal2))
 
-#ggsave("Output/Figures/temperature_effect", device = "png",
+#ggsave("Output/Figures/temperature_effect.png", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
 
@@ -1492,7 +1493,7 @@ ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, co
   theme_black()+ 
   theme(legend.position = "none")
 
-#ggsave("Output/Figures/effects_nat", device = "png",
+#ggsave("Output/Figures/effects_nat.png", device = "png",
 #     height = 9, width = 8, dpi = 400)
 
 # Consumer activity level multilevel model -----
@@ -1552,7 +1553,7 @@ ggplot(act_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, co
   theme_black()+ 
   theme(legend.position = "none")
 
-#ggsave("Output/Figures/effects_act", device = "png",
+#ggsave("Output/Figures/effects_act.png", device = "png",
 #       height = 9, width = 8, dpi = 400)
 
 
@@ -1688,7 +1689,7 @@ ggplot(pp_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, col
   theme_black()+ 
   theme(legend.position = "none")
 
-#ggsave("Output/Figures/effects_pp", device = "png",
+#ggsave("Output/Figures/effects_pp.png", device = "png",
 #       height = 9, width = 16, dpi = 400)
 
 
@@ -1786,7 +1787,7 @@ ggplot() +
                                                    "Temperate n = 69", 
                                                    "Polar n = 2")) 
 
-#ggsave("Output/Figures/interaction_nut_lat_effects", device = "png",
+#ggsave("Output/Figures/interaction_nut_lat_effects.png", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
 # Interaction added nutrients x background nutrients ----
@@ -2125,7 +2126,7 @@ ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
   theme_black() +
   ylim(c(-75, 75))
 
-#ggsave("Output/Figures/response_lat", device = "png",
+#ggsave("Output/Figures/response_lat.png", device = "png",
 #       height = 9, width = 16, dpi = 400)
 
 
@@ -2137,7 +2138,7 @@ ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
   geom_vline(xintercept = 0, linetype="dotted", colour = "white", size = 1.6) +
   theme_black()
 
-#ggsave("Output/Figures/response_lat_noleg", device = "png",
+#ggsave("Output/Figures/response_lat_noleg.png", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
 # Plotting binned chla ---------
@@ -2182,7 +2183,7 @@ ggplot(chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, c
   theme_black()+ 
   theme(legend.position = "none")
 
-#ggsave("Output/Figures/effects_chla", device = "png",
+#ggsave("Output/Figures/effects_chla.png", device = "png",
 #      height = 9, width = 16, dpi = 400)
 
 
