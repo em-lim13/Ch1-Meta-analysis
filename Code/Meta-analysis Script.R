@@ -54,6 +54,8 @@ meta_full <- read_csv("Output/Data/march_meta.csv") %>%
 # using 23.45 as the cut off bc that's between the cancer and capricorn?
 # Another paper set 23.5 - 23.5, and set temperate as 30-40
 
+# The "misc mobile inverts" are jellies and the "misc sesssile inverts" are a single hydroid
+
 # Calculate effect sizes -------
 
 ##### I think I need to manually exclude the negative means because it's still calculating effect sizes for those
@@ -146,7 +148,7 @@ meta_final <- meta_chl %>%
                     ifelse(pp_taxa == "S", "Plants",
                     "Plants"))))) %>%
   mutate(pp_group = ifelse(pp_group == "Plants" & pp_phyla == "Cnidaria", "Coral",
-                           pp_group)) %>%
+                           pp_group)) %>% # this pulls anemones back out of plants
   mutate(lat_stand = base::scale(abs_lat),
          background_nut_stand = scale(background_nut),
          added_N_stand = scale(added_N),
@@ -210,28 +212,28 @@ meta_smol <- meta_final %>%
   drop_na(temp_stand) %>%
   drop_na(added_N_stand) 
 
-
-ggplot(meta_smol, aes(pp_taxa, climate2, colour = climate2)) +
+# Are pp and c taxa well spread across latitudes?
+ggplot(meta_smol, aes(pp_group, climate2, colour = climate2)) +
   geom_jitter(size = 4) +
   theme_black() +
   theme(legend.position = "none") +
   labs(x = "Primary Producer", y = "Climate Zone") +
-  scale_x_discrete(labels = c("Calcareous algae", "Coral", "Endosymbiont", "Fleshy Algae", "Mangrove", "Phytoplankton", "Seagrass")) +
   theme(axis.text.x = element_text(angle = 90))
 
 # Algae not in tropics, and Coral not in Temperates. Phytoplankton and Plants are spreak
   
 # take a look at the distribution of consumers across latitudes
-ggplot(meta_final, aes(c_taxa, climate2, colour = c_taxa)) +
+ggplot(meta_final, aes(c_taxa, climate2, colour = climate2)) +
   geom_jitter(size = 4) +
   theme_black() +
   theme(legend.position = "none") +
   labs(x = "Consumer", y = "Climate Zone") +
-  scale_x_discrete(labels = c("Birds", "Fish", "Crustaceans", "Echinoderms", "Gastropods", "Misc mobile inverts", "Bivalves", "Sponges", "Misc sessile inverts")) +
+  scale_x_discrete(labels = c("Birds", "Fish", "Echinoderms", "Gastropods", "Jellies", "Bivalves", "Sponges", "Hydroid")) +
   theme(axis.text.x = element_text(angle = 30))
 
-# look at consumer groups
-ggplot(meta_final, aes(c_activity, climate2, colour = c_activity)) +
+
+# look at activity level
+ggplot(meta_final, aes(c_activity, climate2, colour = climate2)) +
   geom_jitter(size = 4) +
   theme_black() +
   theme(legend.position = "none") +
@@ -239,10 +241,10 @@ ggplot(meta_final, aes(c_activity, climate2, colour = c_activity)) +
 
 # Look at consumers vs pp??
 ggplot(meta_final, aes(c_taxa, pp_taxa, colour = climate2)) +
-  geom_jitter(size = 4) +
+  geom_jitter(size = 4, alpha = 0.3) +
   theme_bw() +
   labs(x = "Consumer Taxa", y = "Primary Producer Taxa", colour = "Climate") +
-  scale_x_discrete(labels = c("Birds", "Fish", "Crustaceans", "Echinoderms", "Gastropods", "Misc mobile inverts", "Bivalves", "Sponges", "Misc sessile inverts"))+
+  scale_x_discrete(labels = c("Birds", "Fish", "Echinoderms", "Gastropods", "Jellies", "Bivalves", "Sponges", "Hydroid"))+
   theme(axis.text.x = element_text(angle = 30)) +
   scale_y_discrete(labels = c("Calcareous algae", "Coral", "Endosymbiont", "Fleshy Algae", "Mangrove", "Phytoplankton", "Seagrass")) +
   theme(axis.text = element_text(size = 16),
@@ -264,14 +266,6 @@ ggplot(meta_final, aes(abs_lat, background_nut)) +
 #ggsave("Output/Figures/abs_lat_nutrients.png", device = "png",
 #     height = 9, width = 16, dpi = 400)
 
-ggplot(meta_final, aes(abs_lat, temp)) +
-  geom_point() +
-  geom_smooth(method = lm)
-
-ggplot(meta_final, aes(background_nut, chla_est)) +
-  geom_point(aes(colour = climate2)) +
-  geom_smooth(method = lm)
-
 # Multilevel models ------
 # Link to book with help:
 # https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/metareg.html
@@ -281,21 +275,34 @@ ggplot(meta_final, aes(background_nut, chla_est)) +
 # Look at Test of Moderators to determine whether there are significant differences between the subgroups
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
+# Moderators: -----
+# Main question: is effect size altered by latitude?
+# Main mods: 
+  # temperature
+  # latitude
+  # background nutrients
+
+# Co-mods:
+  # provisioned nutrients
+  # openness of experiment
+  # PP group (algae, coral, phytoplankton or plant)
+
+# A note on the added_N 
+# I built models that included added_N and it didn't improve the model or have any effect and cuts like 100 rows from my data so I've decided to drop it
+# The model with added_N and a smaller sample size comes out looking EXACTLY like the model without added_N and a larger sample size. 
+
 
 # One model to rule them all ------
 # If goal is to explain patterns, and sample size is big enough to include all the predictors, then just throw them all in the same model. 
 # Standardize the numeric predictors, then compare standardized effect sizes
 # AIC is good for when you can’t put everything in the same model, I might not be able to put temperature and lat in the same model
-# But I lose like 100 papers when I drop all the NA’s for provisioned nutrients
-# And even when I drop added_N, which increases the sample size, then the # main effect is basically the same
-# Added_N doesn't seem to matter as a mod? No matter how I run it, it has a teeeeeny effect and it's not significant
 
 model_all <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
                           data = meta_final,
                           method = "REML",
-                          mods = ~ lat_stand + background_nut_stand + added_N_stand + temp_stand + natural + pp_group + lat_stand:background_nut_stand + added_N_stand:background_nut_stand +  temp_stand:background_nut_stand + temp_stand:added_N_stand,
+                          mods = ~ lat_stand + background_nut_stand  + temp_stand + natural + pp_group + lat_stand:background_nut_stand +  temp_stand:background_nut_stand,
                           random = ~ 1 | paper_num/indiv, 
                           test = "t")
 
@@ -308,7 +315,7 @@ vif(model_all) # Lat and temp are correlated
 # In general, all three ways I’ve tried to do these stats give a similar answer. Identity of the pp matters (algae has a stronger response than others), and background nutrients is weak/moderate positive effect. This makes both # Hannah and I feel better. All methods point to context dependence!
 
 # Correlation between variables
-cor(cbind(meta_final$lat_stand, meta_final$background_nut_stand, meta_final$added_N_stand, meta_final$temp_stand), use = "complete.obs")
+cor(cbind(meta_final$lat_stand, meta_final$background_nut_stand, meta_final$temp_stand), use = "complete.obs")
 # so temp, lat, and background_nutrients are correlated (|value| < 0.5)
 # So maybe we should go back to AIC because we shouldn't have these three in the same model
 # BC they're correlated, there might be a generally negative relationship between lat/temp/back_nut and effect but within that slope the model things back_nut has a positive effect
@@ -325,24 +332,16 @@ cor(cbind(meta_final$lat_stand, meta_final$background_nut_stand, meta_final$adde
 
 #Subset each plant type to rerun the model_all with each plant type? Or just to do algae by itself and then the rest by themselves. 
 # -might have to run each mod by itself bc low sample size
-# 
 
 # Except I'm going to compete the "full" model with lat vs "full" with temp vs "full" with background_nutrients
 
 # Want all models to use the same data!
-# this df filters out any rows that can't be used for added_N
-meta_smol <- meta_final %>%
-  filter(prov_units == "umol/L") %>%
-  filter(added_N < 10) %>% # Filter out the super high ammonium estimates that are dragging the line down?
-  drop_na(background_nut_stand) %>%
-  drop_na(temp_stand) %>%
-  drop_na(added_N_stand) 
-
 # this df only makes sure to standardize the df between the three correlated variables, and is for use in models without added_N
 meta_smolish <- meta_final %>%
   drop_na(background_nut_stand) %>%
   drop_na(temp_stand) 
 
+# full model with just latitude
 model_full_lat <- rma.mv(yi = yi,
                     V = vi,
                     slab = author,
@@ -365,13 +364,6 @@ model_full_back <- rma.mv(yi = yi,
                                 test = "t")
 
 summary(model_full_back)
-
-
-# AIC(model_full_back, model_full_back_added)  # make sure to run this with meta_smol for both models
-# They're exactly the same. adding added_N doesn't improve the model at all so I want to drop it to increase sample size..?
-# The model with added_N and a smaller sample size comes out looking EXACTLY like the model without added_N and a larger sample size. Let's keep added_N for now
-# The only thing that changes is that coefficient for back_nut becomes signif when we get rid of added_N and increase sample size
-
 
 # Full model with temperature
 model_full_temp <- rma.mv(yi = yi,
@@ -409,70 +401,23 @@ model_cat <- rma.mv(yi = yi,
 
 summary(model_cat)
 
-# 
+# Now see which model has the best support
 AIC_tab <- AIC(model_full_lat, model_full_back, model_full_temp, model_null, model_cat) %>%
   rownames_to_column() %>%
   mutate(best = min(AIC),
          delta = AIC - best)
 
 # So the model with background nutrients is the best model according to AIC but there's still moderate support for all three of lat, temp, and background nutrients
-# Still the best model even if I get rid of added_N which increases the sample size
-# Then present the coefficient plot of the best model, but include the other two in the supp
+
+# Present the coefficient plot of the best model, but include the other two in the supp
 # And we still get an estimate for the effect size for everything
 # Since none of the models are better than the other, I can just chose the one I'm most interested in and throw the other two in the supp
 # But.... I'm interested in both lat and background nut
-# Tried running interaction models between added_N and lat/temp/back_nut and the interaction didn't change anything so I'll leave it out for simplicity. 
-
-# I'm tempted to keep the background
-# Sort of tempted to drop added_N because it restricts the sample size so much and it literally doesn't change the AIC or effects at all and has a teeeeny effect size itself...
 
 # AIC tells you which collection of variables best explain the data
 # And then looking at the p-values of those variables tells you whether ___
 # Hannah advocates for just looking at the effect size (coefficient)
 
-# Three models with added_N -------
-# Lat
-model_full_lat_added <- rma.mv(yi = yi,
-                         V = vi,
-                         slab = author,
-                         data = meta_smol,
-                         method = "REML",
-                         mods = ~ lat_stand  + added_N + natural + pp_group,
-                         random = ~ 1 | paper_num/indiv, 
-                         test = "t")
-
-summary(model_full_lat_added)
-
-# Full model with background_nutrients
-model_full_back_added <- rma.mv(yi = yi,
-                          V = vi,
-                          slab = author,
-                          data = meta_smol,
-                          method = "REML",
-                          mods = ~ background_nut_stand + added_N + natural + pp_group,
-                          random = ~ 1 | paper_num/indiv, 
-                          test = "t")
-
-summary(model_full_back_added)
-
-
-# Full model with temperature
-model_full_temp_added <- rma.mv(yi = yi,
-                          V = vi,
-                          slab = author,
-                          data = meta_smol,
-                          method = "REML",
-                          mods = ~ temp_stand + added_N + natural + pp_group,
-                          random = ~ 1 | paper_num/indiv, 
-                          test = "t")
-
-summary(model_full_temp_added)
-
-# 
-AIC_tab <- AIC(model_full_lat, model_full_back, model_full_temp, model_null, model_cat) %>%
-  rownames_to_column() %>%
-  mutate(best = min(AIC),
-         delta = AIC - best)
 
 # 3 plots: --------
 # Plot with pp_groups coefficient + CI
@@ -523,12 +468,13 @@ pp_effect_sum <- coef(summary(model_full_back)) %>%
          ci.up_adjust = effect + (1.96*se)) %>% 
   left_join(pp_n, by = "pp_group")
 
-
 # GRAPH THIS?
 pp_labs <- c("Algae", "Coral", "Phytoplankton", "Plants")
 
 pp_n_labs <- c("n = 25", "n = 47", "n = 53", "n = 47")
 
+# Plot effect sizes
+# Should I move the dashed line to intersect the algae mean bc that's what the p-values are indicating (whether the CI crosses the algae mean)
 ggplot(pp_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb_adjust, xmax = ci.up_adjust, colour = pp_group)) +
   geom_point(size = 6) +
   geom_errorbar(width = .5, size = 2) +
@@ -788,6 +734,59 @@ summary(model_full_temp_drop)
 # " " -----------
 
 # CODE GRAVEYARD ---------
+
+# this df filters out any rows that can't be used for added_N
+meta_smol <- meta_final %>%
+  filter(prov_units == "umol/L") %>%
+  filter(added_N < 10) %>% # Filter out the super high ammonium estimates that are dragging the line down?
+  drop_na(background_nut_stand) %>%
+  drop_na(temp_stand) %>%
+  drop_na(added_N_stand) 
+
+# Three models with added_N -------
+# Lat
+model_full_lat_added <- rma.mv(yi = yi,
+                               V = vi,
+                               slab = author,
+                               data = meta_smol,
+                               method = "REML",
+                               mods = ~ lat_stand  + added_N + natural + pp_group,
+                               random = ~ 1 | paper_num/indiv, 
+                               test = "t")
+
+summary(model_full_lat_added)
+
+# Full model with background_nutrients
+model_full_back_added <- rma.mv(yi = yi,
+                                V = vi,
+                                slab = author,
+                                data = meta_smol,
+                                method = "REML",
+                                mods = ~ background_nut_stand + added_N + natural + pp_group,
+                                random = ~ 1 | paper_num/indiv, 
+                                test = "t")
+
+summary(model_full_back_added)
+
+
+# Full model with temperature
+model_full_temp_added <- rma.mv(yi = yi,
+                                V = vi,
+                                slab = author,
+                                data = meta_smol,
+                                method = "REML",
+                                mods = ~ temp_stand + added_N + natural + pp_group,
+                                random = ~ 1 | paper_num/indiv, 
+                                test = "t")
+
+summary(model_full_temp_added)
+
+# 
+AIC_tab <- AIC(model_full_lat, model_full_back, model_full_temp, model_null, model_cat) %>%
+  rownames_to_column() %>%
+  mutate(best = min(AIC),
+         delta = AIC - best)
+
 
 # Chlorophyll a multilevel models -----
 # Originally we were using chl a as a proxy for background nutrients. But now I've actually found estimates for background nutrients, and determined that background nutrients and chl a aren't actually that correlated. Which leaves me wondering what chl a is actually a predictor of, knee-jerk would be productivity but we know tropical regions are super productive and have very low chl a
