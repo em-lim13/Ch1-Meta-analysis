@@ -68,18 +68,28 @@ meta_no_neg <- meta_full %>%
 # Should I add like 0.0000000000001 to all the 0's?
  # NO DO NOT DO THIS IT RUINS EVERYTHING EVERY STATISTICAL ANALYSIS BECOMES P = 0.99
 
-meta <- meta_no_neg %>%
-  escalc(measure = "ROM", data = meta_no_neg,
-       m1i = mean_treatment, sd1i = sd_treatment, 
+meta_final <- meta_no_neg %>%
+  escalc(measure = "ROM", data = meta_no_neg, # ROM for log transformed ratio of means
+       m1i = mean_treatment, sd1i = sd_treatment,  # log(treatment/control)
        m2i = mean_control, sd2i = sd_control,
-       n1i = treatment_n, n2i = control_n)
-# ROM for log transformed ratio of means
-# log(treatment/control)
-
-# Gather all papers into dataframe where each is counted once -------
-# Make a data frame where there's only one row for each paper to graph where the papers are from
-meta_reduced <- meta_full %>%
-  filter(obs_num == 1) 
+       n1i = treatment_n, n2i = control_n) %>%
+  rowwise() %>%
+  mutate(sum_all_N_treat = sum(nh4_treatment, no3_treatment, total_nitrogen_treatment, na.rm = TRUE),
+         sum_all_N_cont = sum(nh4_control, no3_control, total_nitrogen_control, na.rm = TRUE),
+         added_N = na_if((sum_all_N_treat - sum_all_N_cont), 0),
+         added_nh4 = na_if((sum(nh4_treatment, na.rm = TRUE) - sum(nh4_control, na.rm = TRUE)), 0)) %>%
+  ungroup() %>%
+  mutate(pp_group = ifelse(pp_taxa == "CA" | pp_taxa == "FA", "Algae",
+                           ifelse(pp_taxa == "En" | pp_taxa == "Co", "Coral",
+                                  ifelse(pp_taxa == "P", "Phytoplankton",
+                                         ifelse(pp_taxa == "S", "Plants",
+                                                "Plants"))))) %>%
+  mutate(pp_group = ifelse(pp_group == "Plants" & pp_phyla == "Cnidaria", "Coral",
+                           pp_group)) %>% # this pulls anemones back out of plants
+  mutate(lat_stand = base::scale(abs_lat),
+         background_nut_stand = scale(background_nut),
+         added_N_stand = scale(added_N),
+         temp_stand = scale(temp))
 
 # Load papers that I can't use but that mostly pass the criteria
 meta_rejected <- read_csv("Output/Data/rejected_papers.csv") %>%
@@ -91,180 +101,12 @@ meta_rejected <- read_csv("Output/Data/rejected_papers.csv") %>%
                            levels = c("Tropics", "Subtropics", "Temperate", "Polar"))) %>%
   dplyr::select(author, title, year, lat_dec, long_dec, climate_zone, climate2)
 
-meta_all_papers <- meta_reduced %>%
+# Make a data frame where there's only one row for each paper to graph where the papers are from
+meta_all_papers <- meta_full %>%
+  filter(obs_num == 1) %>%
   dplyr::select(author, title, year, lat_dec, long_dec, climate_zone, climate2) %>%
   rbind(meta_rejected) # df with all the papers I'm using and the papers I can't use but that still mostly meet the criteria
 
-# Add chla data to orig meta dataframe  -------
-# this file was written in the Chla_extraction.R code file
-chla_all_values <- read_csv("Output/Data/all_extracted_chla_updated.csv") 
-
-meta_chl <- meta %>%
-  left_join(chla_all_values, by = "indiv")
-
-# What's the max and min chla value?
-max <- max(meta_chl$chla_est) # 26.73629
-min<- min(meta_chl$chla_est) # 0.05139377
-
-# How big should each bin be?
-bin_size <- max/5
-upper_bin1 <- bin_size
-upper_bin2 <- bin_size*2
-upper_bin3 <- bin_size*3
-upper_bin4 <- bin_size*4
-upper_bin5 <- bin_size*5
-
-# Smaller bins
-bin_size_small <- max/3
-upper_bin_low <- bin_size_small
-upper_bin_mid <- bin_size_small*2
-upper_bin_high <- bin_size_small*3
-
-
-# use this so that it still works even if the max chla value changes
-
-# add chl a estimates to df
-# add a binned chl a column
-meta_final <- meta_chl %>%
-  mutate(chla_bin = ifelse(chla_est <= upper_bin1, "1",
-                      ifelse(chla_est <= upper_bin2, "2",
-                             ifelse(chla_est <= upper_bin3, "3", 
-                                 ifelse(chla_est <= upper_bin4, "4", "5")))),
-         chla_log = log(chla_est),
-         chla_bin_num = as.numeric(chla_bin),
-         chla_bin_small = factor(ifelse(chla_est <= upper_bin_low, "Low",
-                                  ifelse(chla_est <= upper_bin_mid, "Medium",
-                                         "High")),
-                           levels = c("Low", "Medium", "High"))) %>%
-  rowwise() %>%
-  mutate(sum_all_N_treat = sum(nh4_treatment, no3_treatment, total_nitrogen_treatment, na.rm = TRUE),
-         sum_all_N_cont = sum(nh4_control, no3_control, total_nitrogen_control, na.rm = TRUE),
-         added_N = na_if((sum_all_N_treat - sum_all_N_cont), 0),
-         added_nh4 = na_if((sum(nh4_treatment, na.rm = TRUE) - sum(nh4_control, na.rm = TRUE)), 0)) %>%
-  ungroup() %>%
-  mutate(pp_group = ifelse(pp_taxa == "CA" | pp_taxa == "FA", "Algae",
-                    ifelse(pp_taxa == "En" | pp_taxa == "Co", "Coral",
-                    ifelse(pp_taxa == "P", "Phytoplankton",
-                    ifelse(pp_taxa == "S", "Plants",
-                    "Plants"))))) %>%
-  mutate(pp_group = ifelse(pp_group == "Plants" & pp_phyla == "Cnidaria", "Coral",
-                           pp_group)) %>% # this pulls anemones back out of plants
-  mutate(lat_stand = base::scale(abs_lat),
-         background_nut_stand = scale(background_nut),
-         added_N_stand = scale(added_N),
-         temp_stand = scale(temp))
-  
-# Exploration graphing --------
-# Make palette
-pal <- pnw_palette("Bay", 6)
-pal2 <- pnw_palette("Bay", 4)
-pal_star <- pnw_palette("Starfish", 5)
-
-climate_labs <- c("South Temperate", "South Subtropics", "Tropics", "North Subtropics", "North Temperate", "North Polar")
-
-#using meta_reduced so each paper is only counted once
-ggplot(meta_all_papers, aes(y = climate_zone, fill = climate_zone)) +
-  geom_bar(stat="count") +
-  scale_fill_manual(values = rev(pal)) +
-  scale_y_discrete(labels = climate_labs) +
-  labs( y = "Climate Zone", x = "Number of Papers") + 
-  theme_black() + theme(legend.position = "none")
-
-# Using climate2
-ggplot(meta_all_papers, aes(y = climate2, fill = climate2)) +
-  geom_bar(stat="count") +
-  scale_fill_manual(values = rev(pal2)) +
-  labs( y = "Climate Zone", x = "Number of Papers") + 
-  theme_black() + theme(legend.position = "none")
-
-
-#ggsave("Output/Figures/climate_zone_bar.png", device = "png",
-#      height = 9, width = 16, dpi = 400)
-
-
-# GRAPHING CHL A
-ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
-  geom_jitter()+
-  scale_colour_manual(values = rev(pal), labels = climate_labs) +
-  labs(y = "Latitude", x = "Chlorophyll a (mg/m^2)") + 
-  theme_black() + 
-  theme(legend.position = "none") +
-  ylim(c(-73, 73))
-
-#ggsave("Output/Figures/chla_lat.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
-
-ggplot(meta_final, aes(x = abs_lat, y = chla_est, colour = climate_zone)) +
-  geom_jitter()+
-  scale_colour_manual(values = rev(pal), labels = climate_labs) +
-  labs(x = "Latitude", y = "Chlorophyll a (mg/m^2)") + 
-  theme_black() + 
-  theme(legend.position = "none") 
-
-
-# take a look at the distribution of primary producers across latitudes
-
-# this df filters out any rows that can't be used for added_N
-meta_smol <- meta_final %>%
-  filter(prov_units == "umol/L") %>%
-  filter(added_N < 10) %>% # Filter out the super high ammonium estimates that are dragging the line down?
-  drop_na(background_nut_stand) %>%
-  drop_na(temp_stand) %>%
-  drop_na(added_N_stand) 
-
-# Are pp and c taxa well spread across latitudes?
-ggplot(meta_smol, aes(pp_group, climate2, colour = climate2)) +
-  geom_jitter(size = 4) +
-  theme_black() +
-  theme(legend.position = "none") +
-  labs(x = "Primary Producer", y = "Climate Zone") +
-  theme(axis.text.x = element_text(angle = 90))
-
-# Algae not in tropics, and Coral not in Temperates. Phytoplankton and Plants are spreak
-  
-# take a look at the distribution of consumers across latitudes
-ggplot(meta_final, aes(c_taxa, climate2, colour = climate2)) +
-  geom_jitter(size = 4) +
-  theme_black() +
-  theme(legend.position = "none") +
-  labs(x = "Consumer", y = "Climate Zone") +
-  scale_x_discrete(labels = c("Birds", "Fish", "Echinoderms", "Gastropods", "Jellies", "Bivalves", "Sponges", "Hydroid")) +
-  theme(axis.text.x = element_text(angle = 30))
-
-
-# look at activity level
-ggplot(meta_final, aes(c_activity, climate2, colour = climate2)) +
-  geom_jitter(size = 4) +
-  theme_black() +
-  theme(legend.position = "none") +
-  labs(x = "Consumer Activity Level", y = "Climate Zone")
-
-# Look at consumers vs pp??
-ggplot(meta_final, aes(c_taxa, pp_taxa, colour = climate2)) +
-  geom_jitter(size = 4, alpha = 0.3) +
-  theme_bw() +
-  labs(x = "Consumer Taxa", y = "Primary Producer Taxa", colour = "Climate") +
-  scale_x_discrete(labels = c("Birds", "Fish", "Echinoderms", "Gastropods", "Jellies", "Bivalves", "Sponges", "Hydroid"))+
-  theme(axis.text.x = element_text(angle = 30)) +
-  scale_y_discrete(labels = c("Calcareous algae", "Coral", "Endosymbiont", "Fleshy Algae", "Mangrove", "Phytoplankton", "Seagrass")) +
-  theme(axis.text = element_text(size = 16),
-        axis.title = element_text(size = 18)) +
-  scale_colour_manual(values = rev(pal2))
-  
-# a lot of bivalve papers coming out of temperate regions
-
-# Looking at background nutrients and temperature and provisioning
-
-ggplot(meta_final, aes(abs_lat, background_nut)) +
-  geom_jitter(aes(colour = climate2)) +
-  geom_smooth(method = lm) +
-  scale_colour_manual(values = rev(pal2)) +
-  theme_black() +
-  labs(x = "Absolute Latitude", y = "Background nutrients (umol/L)") +
-  theme(legend.position = "none")
-
-#ggsave("Output/Figures/abs_lat_nutrients.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
 
 # Multilevel models ------
 # Link to book with help:
@@ -300,7 +142,7 @@ ggplot(meta_final, aes(abs_lat, background_nut)) +
 model_all <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
-                          data = meta_final,
+                          data = meta_smolish,
                           method = "REML",
                           mods = ~ lat_stand + background_nut_stand  + temp_stand + natural + pp_group + lat_stand:background_nut_stand +  temp_stand:background_nut_stand,
                           random = ~ 1 | paper_num/indiv, 
@@ -442,7 +284,7 @@ summary(model_full_back)
 # pred <- as.data.frame(predict(model_full_back_added, newmods=c(1,0), transf=exp, digits=2))
 # coef <- coef(summary(model_full_back_added))
 
-# Plot PP first -------
+# Plot PP taxa effect size-------
 # Graph primary producer
 # How many papers in each bin?
 pp_n <- meta_smolish %>%
@@ -494,7 +336,7 @@ ggplot(pp_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb_adjust, xmax = ci.
 #      height = 9, width = 16, dpi = 400)
 
 
-# Graph experimental design -----
+# Plot openness effect size -----
 # How many papers in each bin?
 nat_n <- meta_smolish %>%
   group_by(natural) %>%
@@ -546,7 +388,7 @@ ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb_adjust, xmax = ci
 #      height = 9, width = 16, dpi = 400)
 
 
-# Graph continuous variables -----
+# Plot lat, temp, back_nut effect sizes -----
 
 # Pull coefficient estimates so I can graph them
 lat_effect_sum <- coef(summary(model_full_lat)) %>%
@@ -589,45 +431,70 @@ ggplot(cont_effect_sum, aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub,
 
 # Independence and Bias -------
 
-funnel.rma(model_lat)
-funnel.rma(model_back_nutrients)
-funnel.rma(model_added_N)
-funnel.rma(model_temp)
-funnel.rma(model_exp_design)
-funnel.rma(model_act)
-funnel.rma(model_pp)
-
-# full model 
+funnel.rma(model_all)
+funnel.rma(model_full_lat)
 funnel.rma(model_full_back)
+funnel.rma(model_full_temp)
 
 # A bit of a right skew
 
-fsn(yi = yi, vi = vi, data = meta_smol, type="Rosenthal") #file drawer analysis (missing studies have an effect size = 0)
-# Fail-safe N: 13,962
+fsn(yi = yi, vi = vi, data = meta_smolish, type="Rosenthal") #file drawer analysis (missing studies have an effect size = 0)
+# Fail-safe N: 42,894
 # That seems like quite a large number?????
 
 # Check for influential studies? ------
 
 # make a df where each row is a paper, and num_obs is the number of observations that paper contributed
 max_obs <- meta_smolish %>%
-  group_by(paper_num) %>%
-  dplyr::summarise(num_obs = as.numeric(n()))
+  group_by(paper_num) %>%  
+  summarize(n_obs = n_distinct(obs_num))
 
-hist(max_obs$num_obs)
+hist(max_obs$n_obs)
 
-total_num_obs <- sum(max_obs$num_obs)
+sum(max_obs$n_obs) # 170
+# so 10% of that would be 17 observations per paper
+# so that would mean that paper # 17 and #23 and #29 have just barely too many
 
-# there's 172 data points
-# so 10% of that would be 17.2 observations per paper
-# so that would mean that paper # 17 and #23 and #29 have too many
-
-# Ok so let's remove those papers one at a time and rerun the stats!
-
-# Removing #29 makes the effect of background_nutrients slightly smaller. 
+# Ok so let's remove those papers one at a time and rerun the stats! let's just use the one model bc fuck that
 
 # # 17 and #23 and #29 are the three I need to check
 meta_smolish_drop <- meta_smolish %>%
-  filter(paper_num != 29) 
+  filter(paper_num != 17) 
+
+# Look at the full model
+model_all_drop <- rma.mv(yi = yi,
+                    V = vi,
+                    slab = author,
+                    data = meta_smolish_drop,
+                    method = "REML",
+                    mods = ~ lat_stand + background_nut_stand  + temp_stand + natural + pp_group + lat_stand:background_nut_stand +  temp_stand:background_nut_stand,
+                    random = ~ 1 | paper_num/indiv, 
+                    test = "t")
+summary(model_all_drop)
+
+# Summary stats from full model with all papers:
+#Test of Moderators (coefficients 2:13):
+#  F(df1 = 12, df2 = 159) = 1.9483, p-val = 0.0324
+#
+#Model Results:
+#  
+#                                estimate      se     tval   df    pval    ci.lb   ci.ub 
+#intrcpt                            0.4731  0.1885   2.5102  159  0.0131   0.1009  0.8453  * 
+#  lat_stand                         -0.1945  0.1412  -1.3778  159  0.1702  -0.4733  0.0843    
+#background_nut_stand               0.1233  0.1458   0.8461  159  0.3988  -0.1645  0.4112    
+#temp_stand                        -0.1165  0.1241  -0.9390  159  0.3492  -0.3615  0.1285    
+#natural2                          -0.1699  0.2428  -0.6999  159  0.4850  -0.6494  0.3096    
+#natural3                           0.3753  0.2025   1.8531  159  0.0657  -0.0247  0.7753  . 
+#natural4                           0.5523  0.3119   1.7708  159  0.0785  -0.0637  1.1683  . 
+#natural5                           0.1550  0.2331   0.6652  159  0.5069  -0.3053  0.6154    
+#pp_groupCoral                     -0.1655  0.2170  -0.7624  159  0.4469  -0.5941  0.2631    
+#pp_groupPhytoplankton             -0.4867  0.2489  -1.9553  159  0.0523  -0.9783  0.0049  . 
+#pp_groupPlants                    -0.4024  0.2103  -1.9131  159  0.0575  -0.8178  0.0130  . 
+#lat_stand:background_nut_stand    -0.1583  0.1595  -0.9923  159  0.3226  -0.4733  0.1567    
+#background_nut_stand:temp_stand   -0.2366  0.1920  -1.2325  159  0.2196  -0.6157  0.1425  
+
+# Removing # 17 makes latitude negative and significant in the full model
+# Removing # 23 and 29 doesn't do anything
 
 # Rerun with lat model
 model_full_lat_drop <- rma.mv(yi = yi,
@@ -675,7 +542,7 @@ model_full_back_drop <- rma.mv(yi = yi,
 
 summary(model_full_back_drop)
 
-# Without losing anything: 
+# Original model output: 
 # Test of Moderators (coefficients 2:9):
 #   F(df1 = 8, df2 = 163) = 2.1250, p-val = 0.0362
 
@@ -698,7 +565,7 @@ summary(model_full_back_drop)
               # and the p-value goes from 0.0866 to 0.3947
               # everything else is the same
 
-# Full model with temperature
+# Rerun with with temperature model
 model_full_temp_drop <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
@@ -710,7 +577,7 @@ model_full_temp_drop <- rma.mv(yi = yi,
 
 summary(model_full_temp_drop)
 
-# Without losing anything: 
+# Original model output: 
 #Test of Moderators (coefficients 2:9):
 #  F(df1 = 8, df2 = 163) = 1.7926, p-val = 0.0819
 
@@ -731,9 +598,124 @@ summary(model_full_temp_drop)
 # Dropping #23 doesn't change anything
 # Dropping #29 doesn't change anything
 
-# " " -----------
+# Summary statistics! -----
+
+  
 
 # CODE GRAVEYARD ---------
+
+# Exploration graphing --------
+# Make palette
+pal <- pnw_palette("Bay", 6)
+pal2 <- pnw_palette("Bay", 4)
+pal_star <- pnw_palette("Starfish", 5)
+
+climate_labs <- c("South Temperate", "South Subtropics", "Tropics", "North Subtropics", "North Temperate", "North Polar")
+
+#using meta_reduced so each paper is only counted once
+ggplot(meta_all_papers, aes(y = climate_zone, fill = climate_zone)) +
+  geom_bar(stat="count") +
+  scale_fill_manual(values = rev(pal)) +
+  scale_y_discrete(labels = climate_labs) +
+  labs( y = "Climate Zone", x = "Number of Papers") + 
+  theme_black() + theme(legend.position = "none")
+
+# Using climate2
+ggplot(meta_all_papers, aes(y = climate2, fill = climate2)) +
+  geom_bar(stat="count") +
+  scale_fill_manual(values = rev(pal2)) +
+  labs( y = "Climate Zone", x = "Number of Papers") + 
+  theme_black() + theme(legend.position = "none")
+
+
+#ggsave("Output/Figures/climate_zone_bar.png", device = "png",
+#      height = 9, width = 16, dpi = 400)
+
+
+# GRAPHING CHL A
+ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
+  geom_jitter()+
+  scale_colour_manual(values = rev(pal), labels = climate_labs) +
+  labs(y = "Latitude", x = "Chlorophyll a (mg/m^2)") + 
+  theme_black() + 
+  theme(legend.position = "none") +
+  ylim(c(-73, 73))
+
+#ggsave("Output/Figures/chla_lat.png", device = "png",
+#     height = 9, width = 16, dpi = 400)
+
+ggplot(meta_final, aes(x = abs_lat, y = chla_est, colour = climate_zone)) +
+  geom_jitter()+
+  scale_colour_manual(values = rev(pal), labels = climate_labs) +
+  labs(x = "Latitude", y = "Chlorophyll a (mg/m^2)") + 
+  theme_black() + 
+  theme(legend.position = "none") 
+
+
+# take a look at the distribution of primary producers across latitudes
+
+# this df filters out any rows that can't be used for added_N
+meta_smol <- meta_final %>%
+  filter(prov_units == "umol/L") %>%
+  filter(added_N < 10) %>% # Filter out the super high ammonium estimates that are dragging the line down?
+  drop_na(background_nut_stand) %>%
+  drop_na(temp_stand) %>%
+  drop_na(added_N_stand) 
+
+# Are pp and c taxa well spread across latitudes?
+ggplot(meta_smol, aes(pp_group, climate2, colour = climate2)) +
+  geom_jitter(size = 4) +
+  theme_black() +
+  theme(legend.position = "none") +
+  labs(x = "Primary Producer", y = "Climate Zone") +
+  theme(axis.text.x = element_text(angle = 90))
+
+# Algae not in tropics, and Coral not in Temperates. Phytoplankton and Plants are spreak
+
+# take a look at the distribution of consumers across latitudes
+ggplot(meta_final, aes(c_taxa, climate2, colour = climate2)) +
+  geom_jitter(size = 4) +
+  theme_black() +
+  theme(legend.position = "none") +
+  labs(x = "Consumer", y = "Climate Zone") +
+  scale_x_discrete(labels = c("Birds", "Fish", "Echinoderms", "Gastropods", "Jellies", "Bivalves", "Sponges", "Hydroid")) +
+  theme(axis.text.x = element_text(angle = 30))
+
+
+# look at activity level
+ggplot(meta_final, aes(c_activity, climate2, colour = climate2)) +
+  geom_jitter(size = 4) +
+  theme_black() +
+  theme(legend.position = "none") +
+  labs(x = "Consumer Activity Level", y = "Climate Zone")
+
+# Look at consumers vs pp??
+ggplot(meta_final, aes(c_taxa, pp_taxa, colour = climate2)) +
+  geom_jitter(size = 4, alpha = 0.3) +
+  theme_bw() +
+  labs(x = "Consumer Taxa", y = "Primary Producer Taxa", colour = "Climate") +
+  scale_x_discrete(labels = c("Birds", "Fish", "Echinoderms", "Gastropods", "Jellies", "Bivalves", "Sponges", "Hydroid"))+
+  theme(axis.text.x = element_text(angle = 30)) +
+  scale_y_discrete(labels = c("Calcareous algae", "Coral", "Endosymbiont", "Fleshy Algae", "Mangrove", "Phytoplankton", "Seagrass")) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18)) +
+  scale_colour_manual(values = rev(pal2))
+
+# a lot of bivalve papers coming out of temperate regions
+
+# Looking at background nutrients and temperature and provisioning
+
+ggplot(meta_final, aes(abs_lat, background_nut)) +
+  geom_jitter(aes(colour = climate2)) +
+  geom_smooth(method = lm) +
+  scale_colour_manual(values = rev(pal2)) +
+  theme_black() +
+  labs(x = "Absolute Latitude", y = "Background nutrients (umol/L)") +
+  theme(legend.position = "none")
+
+#ggsave("Output/Figures/abs_lat_nutrients.png", device = "png",
+#     height = 9, width = 16, dpi = 400)
+
 
 # this df filters out any rows that can't be used for added_N
 meta_smol <- meta_final %>%
@@ -786,6 +768,49 @@ AIC_tab <- AIC(model_full_lat, model_full_back, model_full_temp, model_null, mod
   rownames_to_column() %>%
   mutate(best = min(AIC),
          delta = AIC - best)
+
+
+# Add chla data to orig meta dataframe  -------
+# this file was written in the Chla_extraction.R code file
+chla_all_values <- read_csv("Output/Data/all_extracted_chla_updated.csv") 
+
+meta_chl <- meta %>%
+  left_join(chla_all_values, by = "indiv")
+
+# What's the max and min chla value?
+max <- max(meta_chl$chla_est) # 26.73629
+min<- min(meta_chl$chla_est) # 0.05139377
+
+# How big should each bin be?
+bin_size <- max/5
+upper_bin1 <- bin_size
+upper_bin2 <- bin_size*2
+upper_bin3 <- bin_size*3
+upper_bin4 <- bin_size*4
+upper_bin5 <- bin_size*5
+
+# Smaller bins
+bin_size_small <- max/3
+upper_bin_low <- bin_size_small
+upper_bin_mid <- bin_size_small*2
+upper_bin_high <- bin_size_small*3
+
+
+# use this so that it still works even if the max chla value changes
+
+# add chl a estimates to df
+# add a binned chl a column
+meta_final <- meta_chl %>%
+  mutate(chla_bin = ifelse(chla_est <= upper_bin1, "1",
+                           ifelse(chla_est <= upper_bin2, "2",
+                                  ifelse(chla_est <= upper_bin3, "3", 
+                                         ifelse(chla_est <= upper_bin4, "4", "5")))),
+         chla_log = log(chla_est),
+         chla_bin_num = as.numeric(chla_bin),
+         chla_bin_small = factor(ifelse(chla_est <= upper_bin_low, "Low",
+                                        ifelse(chla_est <= upper_bin_mid, "Medium",
+                                               "High")),
+                                 levels = c("Low", "Medium", "High"))) 
 
 
 # Chlorophyll a multilevel models -----
