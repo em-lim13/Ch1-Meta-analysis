@@ -36,8 +36,7 @@ meta_full <- read_csv("Output/Data/march_meta.csv") %>%
          log_nut = log(background_nut),
          climate2 = factor(ifelse(abs_lat <= 23.45, "Tropics",
                            ifelse(abs_lat <= 35, "Subtropics",
-                                  ifelse(abs_lat <= 60, "Temperate",
-                                         "Polar"))),
+                                  ifelse(abs_lat <= 60, "Temperate", "Polar"))),
          levels = c("Tropics", "Subtropics", "Temperate", "Polar")), # New column where I don't distinguish between North subtropics/temperates and South subtropics/temperates
          c_activity = ifelse(c_taxa == "Bi" | c_taxa == "F", "Vertebrate",
                         ifelse(c_taxa == "SP" | c_taxa == "B" | c_taxa == "SI", "Sessile Invert", "Mobile Invert")),
@@ -62,6 +61,7 @@ meta_full <- read_csv("Output/Data/march_meta.csv") %>%
 meta_no_neg <- meta_full %>%
   filter(mean_control > 0) %>%
   filter(mean_treatment > 0)
+
 
 # We lose 5 rows when we remove 0's and 4 when we remove negatives (9 total)
 # should I switch to Hedges g????
@@ -128,6 +128,8 @@ meta_all_papers <- meta_full %>%
   # provisioned nutrients
   # openness of experiment
   # PP group (algae, coral, phytoplankton or plant)
+
+# Should I build a seperate model for each mod???
 
 # A note on the added_N 
 # I built models that included added_N and it didn't improve the model or have any effect and cuts like 100 rows from my data so I've decided to drop it
@@ -265,6 +267,9 @@ AIC_tab <- AIC(model_full_lat, model_full_back, model_full_temp, model_null, mod
 # Plot with pp_groups coefficient + CI
 # Plot with natural coefficient + CI
 # Plot with coefficient + CI of each continuous variable
+
+# palette
+pal_star <- pnw_palette("Starfish", 5)
 
 # Maybe some help here?
 # https://www.metafor-project.org/doku.php/tips:meta_regression_with_log_rr
@@ -608,7 +613,6 @@ summary(model_full_temp_drop)
 # Make palette
 pal <- pnw_palette("Bay", 6)
 pal2 <- pnw_palette("Bay", 4)
-pal_star <- pnw_palette("Starfish", 5)
 
 climate_labs <- c("South Temperate", "South Subtropics", "Tropics", "North Subtropics", "North Temperate", "North Polar")
 
