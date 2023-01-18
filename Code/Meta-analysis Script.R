@@ -32,23 +32,25 @@ meta_full <- read_csv("Output/Data/march_meta.csv") %>%
   mutate(sd_treatment = ifelse(sd_treatment == 999, se_treatment*sqrt(treatment_n), sd_treatment), # replacing that dummy with the estimated SD
          sd_control = ifelse(sd_control == 999, se_control*sqrt(control_n), sd_control),# replacing that dummy with the estimated SE
          natural = as.factor(natural),
+         pp_taxa = as.factor(pp_taxa),
          abs_lat = abs(lat_dec), # creating an absolute value lat
          log_nut = log(background_nut),
-         climate2 = factor(ifelse(abs_lat <= 23.45, "Tropics",
-                           ifelse(abs_lat <= 35, "Subtropics",
-                                  ifelse(abs_lat <= 60, "Temperate", "Polar"))),
+         climate2 = factor(case_when(abs_lat <= 23.45 ~ "Tropics",
+                                     abs_lat <= 35 ~ "Subtropics",
+                                     abs_lat <= 60 ~ "Temperate",
+                                     abs_lat > 60 ~ "Polar"),
          levels = c("Tropics", "Subtropics", "Temperate", "Polar")), # New column where I don't distinguish between North subtropics/temperates and South subtropics/temperates
          c_activity = ifelse(c_taxa == "Bi" | c_taxa == "F", "Vertebrate",
                         ifelse(c_taxa == "SP" | c_taxa == "B" | c_taxa == "SI", "Sessile Invert", "Mobile Invert")),
          c_activity = factor(c_activity, levels = c("Vertebrate", "Mobile Invert", "Sessile Invert")), # activity levels for consumers
          c_taxa = factor(c_taxa, levels = c("Bi", "F", "Cr", "E", "G", "MI", "B", "SP", "SI")), # reorder c_taxa
-         climate_zone = factor(ifelse(lat_dec >= 66.5, "NP",
-                                      ifelse(lat_dec >= 35, "NT",
-                                      ifelse(lat_dec >= 23.45, "NST",
-                                      ifelse(lat_dec >= -23.45, "T",
-                                      ifelse(lat_dec >= -35, "SST",
-                                      ifelse(lat_dec >= -66.5, "ST",
-                                             "SP")))))), 
+         climate_zone = factor(case_when(lat_dec >= 66.5 ~ "NP",
+                                         lat_dec >= 35 ~ "NT",
+                                         lat_dec >= 23.45 ~ "NST",
+                                         lat_dec >= -23.45 ~ "T",
+                                         lat_dec >= -35 ~ "SST",
+                                         lat_dec >= -66.5 ~ "ST",
+                                         lat_dec < -66.5 ~ "SP"), 
                                 levels = c("ST", "SST", "T", "NST", "NT", "NP"))) # assign climate zones based on a code, makes it easier and less prone to mistakes
 # using 23.45 as the cut off bc that's between the cancer and capricorn?
 # Another paper set 23.5 - 23.5, and set temperate as 30-40
@@ -79,25 +81,25 @@ meta_final <- meta_no_neg %>%
          added_N = na_if((sum_all_N_treat - sum_all_N_cont), 0),
          added_nh4 = na_if((sum(nh4_treatment, na.rm = TRUE) - sum(nh4_control, na.rm = TRUE)), 0)) %>%
   ungroup() %>%
-  mutate(pp_group = ifelse(pp_taxa == "CA" | pp_taxa == "FA", "Algae",
-                           ifelse(pp_taxa == "En" | pp_taxa == "Co", "Coral",
-                                  ifelse(pp_taxa == "P", "Phytoplankton",
-                                         ifelse(pp_taxa == "S", "Plants",
-                                                "Plants"))))) %>%
-  mutate(pp_group = ifelse(pp_group == "Plants" & pp_phyla == "Cnidaria", "Coral",
-                           pp_group)) %>% # this pulls anemones back out of plants
-  mutate(lat_stand = base::scale(abs_lat),
+  mutate(pp_group = as.factor(case_when(pp_taxa == "CA" | pp_taxa == "FA" ~ 'Algae',
+                              pp_taxa == "En" | pp_taxa == "Co" ~ 'Coral',
+                              pp_taxa == "P" ~ 'Phytoplankton',
+                              pp_taxa == "S" ~ "Plants",
+                              pp_phyla == "Tracheophyta" ~ "Plants",
+                              pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")),
+         lat_stand = base::scale(abs_lat),
          background_nut_stand = scale(background_nut),
          added_N_stand = scale(added_N),
          temp_stand = scale(temp))
 
+
 # Load papers that I can't use but that mostly pass the criteria
 meta_rejected <- read_csv("Output/Data/rejected_papers.csv") %>%
   mutate(abs_lat = abs(lat_dec),
-         climate2 = factor(ifelse(abs_lat <= 23.5, "Tropics",
-                                  ifelse(abs_lat <= 40, "Subtropics",
-                                         ifelse(abs_lat <= 60, "Temperate",
-                                                "Polar"))),
+         climate2 = factor(case_when(abs_lat <= 23.45 ~ "Tropics",
+                                     abs_lat <= 35 ~ "Subtropics",
+                                     abs_lat <= 60 ~ "Temperate",
+                                     abs_lat > 60 ~ "Polar"),
                            levels = c("Tropics", "Subtropics", "Temperate", "Polar"))) %>%
   dplyr::select(author, title, year, lat_dec, long_dec, climate_zone, climate2)
 
@@ -107,6 +109,14 @@ meta_all_papers <- meta_full %>%
   dplyr::select(author, title, year, lat_dec, long_dec, climate_zone, climate2) %>%
   rbind(meta_rejected) # df with all the papers I'm using and the papers I can't use but that still mostly meet the criteria
 
+# Want all models to use the same data!
+# this df only makes sure to standardize the df between the three correlated variables, and is for use in models without added_N
+meta_smolish <- meta_final %>%
+  drop_na(background_nut_stand) %>%
+  drop_na(temp_stand) %>%
+  mutate(indiv = as.factor(indiv),
+         paper_num = as.factor(paper_num))
+
 
 # Multilevel models ------
 # Link to book with help:
@@ -114,7 +124,25 @@ meta_all_papers <- meta_full %>%
 
 # There is a special way through which we can tell rma.mv to assume such nested random effects. We do this using a slash (/) to separate the higher- and lower-level grouping variable. To the left of /, we put in the level 3 (cluster) variable. To the right, we insert the lower-order variable nested in the larger cluster. Therefore, the general structure of the formula looks like this: ~ 1 | cluster/effects_within_cluster
 
+# Recommended to set test = “t” to use a test similar to the Knapp-Hartung method
+# Recommended to set method = “REML” for restricted maximum likelihood
+
+# Make sure categorical variables are factors
+
+# Model output #
+
+# Variance Components
+  # random-effects variances calculated for each level of our model
+  # sigma^2.1 shows the level 3 between-cluster variance (the between-study heterogeneity variance tao^2 in a conventional meta-analysis)
+  # sigma^2.2 shows the variance within clusters (level 2)
+  # nlvls is the number of levels within each level. X studies which contained X effect sizes
+
+# Test for Residual Heterogeneity:
+# If the test for residual heterogeneity is significant (p < 0.05), this possibly indicates that other moderators not considered in the model are influencing the vaccine effectiveness.
+
 # Look at Test of Moderators to determine whether there are significant differences between the subgroups
+# If this p-value > 0.05 then we can reject null hypothesis H0 : β1 = β2 = 0 based on the omnibus test (this means our moderators are better than a null model)
+
 # The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
 # Moderators: -----
@@ -129,7 +157,8 @@ meta_all_papers <- meta_full %>%
   # openness of experiment
   # PP group (algae, coral, phytoplankton or plant)
 
-# Should I build a seperate model for each mod???
+# When I build a separate model for each moderator the coefficients and p-values don't change
+# Keep them in one model!
 
 # A note on the added_N 
 # I built models that included added_N and it didn't improve the model or have any effect and cuts like 100 rows from my data so I've decided to drop it
@@ -146,11 +175,12 @@ model_all <- rma.mv(yi = yi,
                           slab = author,
                           data = meta_smolish,
                           method = "REML",
-                          mods = ~ lat_stand + background_nut_stand  + temp_stand + natural + pp_group + lat_stand:background_nut_stand +  temp_stand:background_nut_stand,
+                          mods = ~ lat_stand + background_nut_stand  + temp_stand + natural + pp_group + lat_stand:background_nut_stand +  temp_stand:background_nut_stand ,
                           random = ~ 1 | paper_num/indiv, 
                           test = "t")
 
 summary(model_all)
+
 vif(model_all) # Lat and temp are correlated
 # intercept tells me what the value is at the natural 1 pp group algae and mean of all other variables
 # looking at the full data (took out all added_N terms) the coefficients are basically hte same
@@ -163,6 +193,31 @@ cor(cbind(meta_final$lat_stand, meta_final$background_nut_stand, meta_final$temp
 # so temp, lat, and background_nutrients are correlated (|value| < 0.5)
 # So maybe we should go back to AIC because we shouldn't have these three in the same model
 # BC they're correlated, there might be a generally negative relationship between lat/temp/back_nut and effect but within that slope the model things back_nut has a positive effect
+
+
+# Let's make sure the three level model is better than a two level model before I go further
+# fit a model in which the level 3 variance, representing the between-study heterogeneity, is set to zero
+# This is equal to fitting a simple random-effects model in which we assume that all effect sizes are independent (which we know they are not).
+
+model_all_l3_removed <- rma.mv(yi = yi,
+                    V = vi,
+                    slab = author,
+                    data = meta_smolish,
+                    method = "REML",
+                    mods = ~ lat_stand + background_nut_stand  + temp_stand + natural + pp_group + lat_stand:background_nut_stand +  temp_stand:background_nut_stand,
+                    random = ~ 1 | paper_num/indiv, 
+                    test = "t",
+                    sigma2 =  c(0, NA)) # set level 3 variance = 0
+
+summary(model_all_l3_removed) # We can see we sucessfully set sigma 2 (level 3 variance) = 0
+
+# But is it better?
+anova(model_all, model_all_l3_removed)
+# They're basically the same
+# BUT the website says even if the three level model isn't better, if we KNOW the studies are not independent it still makes sense to model the random effect of study to be statistically correct
+# So I think I'm justified in keeping the third level
+# And the effect sizes and p-values don't change in a meaningful way, if at all.
+
 
 #### Three separate models ------
 # 1) everything in full model - temp and lat
@@ -179,11 +234,6 @@ cor(cbind(meta_final$lat_stand, meta_final$background_nut_stand, meta_final$temp
 
 # Except I'm going to compete the "full" model with lat vs "full" with temp vs "full" with background_nutrients
 
-# Want all models to use the same data!
-# this df only makes sure to standardize the df between the three correlated variables, and is for use in models without added_N
-meta_smolish <- meta_final %>%
-  drop_na(background_nut_stand) %>%
-  drop_na(temp_stand) 
 
 # full model with just latitude
 model_full_lat <- rma.mv(yi = yi,
@@ -197,6 +247,17 @@ model_full_lat <- rma.mv(yi = yi,
 
 summary(model_full_lat)
 
+model_lat <- rma.mv(yi = yi,
+                         V = vi,
+                         slab = author,
+                         data = meta_smolish,
+                         method = "REML",
+                         mods = ~ lat_stand,
+                         random = ~ 1 | paper_num/indiv, 
+                         test = "t")
+
+summary(model_lat)
+
 # Full model with background_nutrients
 model_full_back <- rma.mv(yi = yi,
                                 V = vi,
@@ -208,6 +269,7 @@ model_full_back <- rma.mv(yi = yi,
                                 test = "t")
 
 summary(model_full_back)
+
 
 # Full model with temperature
 model_full_temp <- rma.mv(yi = yi,
@@ -448,7 +510,17 @@ fsn(yi = yi, vi = vi, data = meta_smolish, type="Rosenthal") #file drawer analys
 # That seems like quite a large number?????
 
 # Check for influential studies? ------
+# maybe I can use metafor::influence() to help
+# ?metafor::influence.rma.mv()
+# These tests take FOREVER don't run!
 
+# cooks.distance(model_full_back, progbar=FALSE, reestimate=TRUE, parallel="no", ncpus=1, cl=NULL)
+
+# dfbetas(model_full_back, progbar=FALSE, reestimate=TRUE, parallel="no", ncpus=1, cl=NULL, ...)
+
+# hatvalues(model_full_back, type="diagonal")
+
+# Do this manually instead
 # make a df where each row is a paper, and num_obs is the number of observations that paper contributed
 max_obs <- meta_smolish %>%
   group_by(paper_num) %>%  
@@ -1184,7 +1256,7 @@ model_coral <- rma.mv(yi = yi,
                       data = corals,
                       method = "REML",
                       mods = ~ pp_taxa,
-                      random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                      random = ~ 1 | paper_num/indiv, 
                       test = "t")
 
 summary(model_coral)
@@ -1257,13 +1329,16 @@ summary(model_null) # <.0001
 model_lat <- rma.mv(yi = yi,
                     V = vi,
                     slab = author,
-                    data = meta_final,
+                    data = meta_smolish,
                     method = "REML",
                     mods = ~ lat_stand,
                     random = ~ 1 | paper_num/indiv, 
                     test = "t")
 
 summary(model_lat)
+# model_lat: coeff = -0.0359, p = 0.5733
+# model_full_lat: coeff = -0.0359, p = 0.8513
+
 # meta_final --> p-val = 0.7132
 # meta_umolL --> p-val = p-val = 0.1782
 
@@ -1327,13 +1402,16 @@ ggplot() +
 model_back_nutrients <- rma.mv(yi = yi,
                                V = vi,
                                slab = author,
-                               data = meta_final,
+                               data = meta_smolish,
                                method = "REML",
                                mods = ~ background_nut,
-                               random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                               random = ~ 1 | paper_num/indiv, 
                                test = "t")
 
 summary(model_back_nutrients)
+#model_back_nutrients: coeff: 0.0090, p = 0.3234
+#model_full_back: coeff: 0.1275, p = 0.0903
+
 # meta_final --> p-value = 0.2242
 # meta_umolL --> p-value = 0.0162
 
@@ -1423,13 +1501,16 @@ meta_big_pee <- meta_umolL %>%
 model_temp <- rma.mv(yi = yi,
                      V = vi,
                      slab = author,
-                     data = meta_final,
+                     data = meta_smolish,
                      method = "REML",
                      mods = ~ temp,
                      random = ~ 1 | paper_num/indiv,
                      test = "t")
 
 summary(model_temp)
+# model_temp: coeff = -0.0036, p = 0.7154
+# model_full_temp: coeff = -0.0551 , p = 0.4508
+
 # meta_final --> p-val = 0.5513
 # meta_umolL --> p-val = 0.0995
 
@@ -1461,10 +1542,10 @@ ggplot() +
 model_exp_design <- rma.mv(yi = yi,
                            V = vi,
                            slab = author,
-                           data = meta_final,
+                           data = meta_smolish,
                            method = "REML",
                            mods = ~ natural,
-                           random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                           random = ~ 1 | paper_num/indiv,
                            test = "t")
 
 summary(model_exp_design)
@@ -1517,7 +1598,7 @@ ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, co
                      sec.axis = sec_axis(~.,
                                          breaks = 1:length(nat_n_labs),
                                          labels = nat_n_labs)) +
-  scale_colour_manual(values = rev(pal_star)) +
+  scale_colour_manual(values = rev(pal_star))+
   theme_black()+ 
   theme(legend.position = "none")
 
@@ -1531,7 +1612,7 @@ model_act <- rma.mv(yi = yi,
                     data = meta_final,
                     method = "REML",
                     mods = ~ c_activity,
-                    random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                    random = ~ 1 | paper_num/indiv, 
                     test = "t")
 
 summary(model_act)
@@ -1601,7 +1682,7 @@ summary(model_activity_lmer)
 model_pp <- rma.mv(yi = yi,
                    V = vi,
                    slab = author,
-                   data = meta_final,
+                   data = meta_smolish,
                    method = "REML",
                    mods = ~ pp_group ,
                    random = ~ 1 | paper_num/indiv,
@@ -1618,7 +1699,7 @@ algae <- meta_final %>%
 # I just looked at the phytoplankton and the algae
 # Both had the same trend
 
-# OKKKK does algae effect vary by lat
+# Does algae effect vary by lat
 p_lat <- rma.mv(yi = yi,
                 V = vi,
                 slab = author,
@@ -1630,7 +1711,7 @@ p_lat <- rma.mv(yi = yi,
 
 summary(p_lat) # NO, p-val = 0.2787
 
-# OKKKK does algae effect vary by back nut
+# Does algae effect vary by back nut
 p_back <- rma.mv(yi = yi,
                  V = vi,
                  slab = author,
@@ -1640,10 +1721,10 @@ p_back <- rma.mv(yi = yi,
                  random = ~ 1 | paper_num/indiv,
                  test = "t")
 
-summary(p_back) # YES, p-val = 0.0738
-# Larger effect of pee on algae with higher levels of background nutrients
+summary(p_back) # Not really, coeff = 0.0666 and p-val = 0.0577
+# Slightly larger effect of pee on algae with higher levels of background nutrients
 
-# OKKKK does algae effect vary by added nut or added nh4
+# Does algae effect vary by added nut or added nh4
 # Use meta_umolL because that only has the measured nitrogen added in umol/L
 
 algae_umol <- meta_umolL %>%
@@ -1653,7 +1734,7 @@ algae_umol <- meta_umolL %>%
 p_added_N <- rma.mv(yi = yi,
                     V = vi,
                     slab = author,
-                    data = algae_umol,
+                    data = algae,
                     method = "REML",
                     mods = ~ added_N,
                     random = ~ 1 | paper_num/indiv,
@@ -1728,7 +1809,7 @@ model_lat_back <- rma.mv(yi = yi,
                          data = meta_final,
                          method = "REML",
                          mods = ~ background_nut * abs_lat,
-                         random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                         random = ~ 1 | paper_num/indiv, 
                          test = "t")
 
 summary(model_lat_back)
@@ -2000,7 +2081,7 @@ re_model_act <- rma.mv(yi = yi,
                        data = meta_drop,
                        method = "REML",
                        mods = ~ c_activity,
-                       random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                       random = ~ 1 | paper_num/indiv, 
                        test = "t")
 
 summary(re_model_act)
@@ -2035,7 +2116,7 @@ re_model_lat_back <- rma.mv(yi = yi,
                             data = meta_drop,
                             method = "REML",
                             mods = ~ background_nut * abs_lat,
-                            random = ~ 1 | paper_num/indiv, # Need to decide if I need to nest or not
+                            random = ~ 1 | paper_num/indiv, 
                             test = "t")
 
 summary(re_model_lat_back)
