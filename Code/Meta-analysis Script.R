@@ -13,6 +13,7 @@ library(visreg)
 library(metafor)
 library(esc)
 library(RColorBrewer)
+library(patchwork)
 
 source(file = "Code/theme_black_code.R")
 theme_set(theme_classic())
@@ -87,6 +88,14 @@ meta_final <- meta_no_neg %>%
                               pp_taxa == "S" ~ "Plants",
                               pp_phyla == "Tracheophyta" ~ "Plants",
                               pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")),
+         pp_groupz = as.factor(case_when(pp_taxa == "CA"  ~ 'Crustose algae',
+                                         pp_taxa == "FA" ~ 'Fleshy algae',
+                                         pp_taxa == "En" ~ "Endo",
+                                         pp_taxa == "Co" ~ 'Coral',
+                                         pp_taxa == "P" ~ 'Phytoplankton',
+                                         pp_taxa == "S" ~ "Seagrass",
+                                         pp_taxa == "O" & pp_phyla == "Tracheophyta" ~ "Trees",
+                                         pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")),
          lat_stand = base::scale(abs_lat),
          background_nut_stand = scale(background_nut),
          added_N_stand = scale(added_N),
@@ -105,7 +114,7 @@ meta_rejected <- read_csv("Output/Data/rejected_papers.csv") %>%
 
 # Make a data frame where there's only one row for each paper to graph where the papers are from
 meta_all_papers <- meta_full %>%
-  filter(obs_num == 1) %>%
+  distinct(paper_num, .keep_all = TRUE) %>%
   dplyr::select(author, title, year, lat_dec, long_dec, climate_zone, climate2) %>%
   rbind(meta_rejected) # df with all the papers I'm using and the papers I can't use but that still mostly meet the criteria
 
@@ -156,6 +165,8 @@ meta_smolish <- meta_final %>%
   # provisioned nutrients
   # openness of experiment
   # PP group (algae, coral, phytoplankton or plant)
+
+# Why did I stop looking at consumer activity level?
 
 # When I build a separate model for each moderator the coefficients and p-values don't change
 # Keep them in one model!
@@ -366,7 +377,7 @@ papers <- meta_smolish %>%
 # Pull coefficient estimates so I can graph them
 intercept_pp <- coef(summary(model_full_back))[1,1] # extract the intercept
 
-# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+# Now pull the rest of the coefficients, add a column for pp, and adjust the estimates to reflect the estimated effect sizes
 
 pp_effect_sum <- coef(summary(model_full_back)) %>%
   slice(-(2:6)) %>%
@@ -380,14 +391,14 @@ pp_effect_sum <- coef(summary(model_full_back)) %>%
 # GRAPH THIS?
 pp_labs <- c("Algae", "Coral", "Phytoplankton", "Plants")
 
-pp_n_labs <- c("n = 25", "n = 47", "n = 53", "n = 47")
+pp_n_labs <- c("n = 25", "n = 47", "n = 53", "n = 47") # based on the sample sizes in the df
 
 # Plot effect sizes
 # Should I move the dashed line to intersect the algae mean bc that's what the p-values are indicating (whether the CI crosses the algae mean)
 ggplot(pp_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb_adjust, xmax = ci.up_adjust, colour = pp_group)) +
   geom_point(size = 6) +
   geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept = 0, color="white", linetype="dashed") +
+  geom_vline(xintercept = 0, color="black", linetype="dashed") +
   theme_classic() +
   labs(x = "Effect size", y = " ") +
   scale_y_continuous(breaks = 1:length(pp_labs),
@@ -396,10 +407,10 @@ ggplot(pp_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb_adjust, xmax = ci.
                                          breaks = 1:length(pp_n_labs),
                                          labels = pp_n_labs)) +
   scale_colour_manual(values = rev(pal_star)) +
-  theme_black()+ 
+  theme_white()+ 
   theme(legend.position = "none")
 
-# ggsave("Output/Figures/pres_pp.png", device = "png",
+# ggsave("Output/Pub_figs/pp_effect.png", device = "png",
 #      height = 9, width = 16, dpi = 400)
 
 
@@ -439,7 +450,7 @@ nat_n_labs <- c("n = 74", "n = 14", "n = 21", "n = 9", "n = 54")
 ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb_adjust, xmax = ci.up_adjust, colour = nat_bin)) +
   geom_point(size = 6) +
   geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept = 0, color="white", linetype="dashed") +
+  geom_vline(xintercept = 0, color="black", linetype="dashed") +
   theme_classic() +
   labs(x = "Effect size", y = " ") +
   scale_y_continuous(breaks = 1:length(nat_labs),
@@ -448,14 +459,17 @@ ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb_adjust, xmax = ci
                                          breaks = 1:length(nat_n_labs),
                                          labels = nat_n_labs)) +
   scale_colour_manual(values = rev(pal_star)) +
-  theme_black()+ 
+  theme_white()+ 
   theme(legend.position = "none")
 
-# ggsave("Output/Figures/pres_nat.png", device = "png",
-#      height = 9, width = 16, dpi = 400)
+#ggsave("Output/Pub_figs/nat_effect.png", device = "png",
+#     height = 9, width = 16, dpi = 400)
 
 
 # Plot lat, temp, back_nut effect sizes -----
+
+# Maybe make a linear plot of the predicted effect + CI as background nutrients increases?
+# Could add raw data as dots?
 
 # Pull coefficient estimates so I can graph them
 lat_effect_sum <- coef(summary(model_full_lat)) %>%
@@ -478,23 +492,82 @@ cont_effect_sum <- coef(summary(model_full_back)) %>%
 
 
 # GRAPH THIS?
+pal_sm <- pnw_palette("Starfish", 3)
 cont_labs <- c("Background nutrients", "Absolute latitude", "Temperature")
 names(cont_labs) <- c("background_nut_stand", "lat_stand", "temp_stand")
 
 ggplot(cont_effect_sum, aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
   geom_point(size = 6) +
   geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="white", linetype="dashed") +
-  theme_classic() +
+  geom_vline(xintercept=0, color="black", linetype="dashed") +
   labs(x = "Standardized effect size", y = " ")  +
-  theme_black()+ 
+  theme_white()+ 
   theme(legend.position = "none") +
   scale_y_discrete(labels = cont_labs) +
-  scale_colour_manual(values = rev(pal_star)) +
+  scale_colour_manual(values = rev(pal_sm)) +
   facet_wrap(~ rowname, nrow = 3, labeller = labeller(rowname = cont_labs))
 
-# ggsave("Output/Figures/pres_cont.png", device = "png",
+
+# ggsave("Output/Pub_figs/cont_effects.png", device = "png",
 #      height = 9, width = 16, dpi = 400)
+
+
+# Try plotting the three continuous variables another way
+
+back_nut_plot <- cont_effect_sum %>%
+  filter(rowname == "background_nut_stand") %>%
+  ggplot(aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="black", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Standardized effect size", y = " ")  +
+  theme_white()+ 
+  theme(legend.position = "none") +
+  scale_y_discrete(labels = cont_labs) +
+  scale_colour_manual(values = pal_sm[3]) +  
+  ggtitle('Background nutrients')
+
+# now just lat 
+lat_plot <- cont_effect_sum %>%
+  filter(rowname == "lat_stand") %>%
+  ggplot(aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="black", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Standardized effect size", y = " ")  +
+  theme_white()+ 
+  theme(legend.position = "none") +
+  scale_y_discrete(labels = cont_labs) +
+  scale_colour_manual(values = pal_sm[2]) +  
+  ggtitle('Absolute latitude')
+
+# now just temp 
+temp_plot <- cont_effect_sum %>%
+  filter(rowname == "temp_stand") %>%
+  ggplot(aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="black", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Standardized effect size", y = " ")  +
+  theme_white()+ 
+  theme(legend.position = "none") +
+  scale_y_discrete(labels = cont_labs) +
+  scale_colour_manual(values = pal_sm[1]) +  
+  ggtitle('Temperature')
+
+# throw all three together
+back_nut_plot + lat_plot + temp_plot +
+  plot_layout(ncol = 1) +
+  plot_annotation(tag_levels = "a") +
+  theme(plot.margin = margin(r = 0, l = 0)) & 
+  theme(plot.tag.position = c(0.1, 0.9),
+        plot.tag = element_text(size = 16, hjust = 0, vjust = 0))
+
+# This looks SO MUCH WORSE than the facet wrapped one! YIKES
+
 
 # Independence and Bias -------
 
@@ -502,6 +575,7 @@ funnel.rma(model_all)
 funnel.rma(model_full_lat)
 funnel.rma(model_full_back)
 funnel.rma(model_full_temp)
+funnel.rma(model_null)
 
 # A bit of a right skew
 
@@ -677,9 +751,248 @@ summary(model_full_temp_drop)
 
 # Summary statistics! -----
 
+# what percentage of studies fell into each category?
+
+# PP first
+pp_n2 <- pp_n %>%
+  mutate(percent = n/sum(n))
+
+# Experimental design
+nat_n2 <- nat_n %>%
+  mutate(percent = n/sum(n),
+         delta = 0.2 - percent)
+
+# Abs lat
+lat_n <- meta_smolish %>%
+  distinct(paper_num, .keep_all = TRUE) %>%
+  count(climate2)%>%
+  mutate(percent = n/sum(n))
+  
+meta_smolish %>%
+  distinct(paper_num, .keep_all = TRUE) %>%
+  mutate(dummy = 1) %>%
+  ggplot(aes(abs_lat, dummy)) +
+  geom_point()
+
+# Figures ------
+# Look at consumers vs pp vs region
+# combine jellies and hydroids!
+
+meta_jelly <- meta_smolish %>%
+  mutate(c_taxa_new = ifelse(c_taxa == "SI" | c_taxa == "MI", "Cn", c_taxa))
+  
+ggplot(meta_smolish, aes(c_taxa, pp_taxa, colour = climate2)) +
+  geom_jitter(size = 4, alpha = 0.3) +
+  theme_bw() +
+  labs(x = "Consumer Taxa", y = "Primary Producer Taxa", colour = "Climate") +
+  scale_x_discrete(labels = c("Birds", "Fish", "Echinoderms", "Gastropods", "Jellies", "Bivalves", "Sponges", "Hydroid"))+
+  theme(axis.text.x = element_text(angle = 30)) +
+  scale_y_discrete(labels = c("Calcareous algae", "Coral", "Endosymbiont", "Fleshy Algae", "Mangrove", "Phytoplankton", "Seagrass")) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18)) +
+  scale_colour_manual(values = rev(pal2))
   
 
+# Graph background nutrients ---- 
+nut_predict <- as.data.frame(predict(model_full_back,
+                                     addx=TRUE)) %>%
+  tibble::rownames_to_column("author") %>%
+  rename(background_nut_stand = X.background_nut_stand) 
+
+# set seed because otherwise I'll get different colours each time
+set.seed(1235)
+
+# plot predicted values as line, jitter observed effect sizes
+ggplot() +
+  geom_line(data = nut_predict, aes(background_nut_stand, pred),  size = 1.5) +
+  geom_jitter(data = meta_smolish, aes(background_nut_stand, yi, colour = paper_num)) +
+  geom_ribbon(data = nut_predict, aes(background_nut_stand, pred, ymin = ci.lb, ymax = ci.ub), fill = "grey3", alpha = .1) +
+  labs(x = "Background nutrients (umol/L)", y = "Effect Size", colour = "Climate Zone") +
+  geom_hline(yintercept=0, color="black", linetype="dashed") +
+  theme_white() +
+  theme(legend.position = "none")
+# OK this looks fucked up bc the categorical variables also impact the predictions
+
+
+# Can I try to make effect size predictions across "standardized" categorical variables?
+# AKA Can I ask what we predict the effect of pee is on Algae in natural experiments across a broad range of background nutrient values?
+
+# Try to make new DF to generate predictions from?
+max_nut_stand <- max(meta_smolish$background_nut_stand) # 2.36554
+min_nut_stand <- min(meta_smolish$background_nut_stand) # 2.36554
+
+nut_values <- data.frame(
+  back_nut_stand = c(seq(from = min_nut_stand, to = max_nut_stand, length.out = 100)),
+  natural2 = c(rep(0, each = 100)),
+  natural3 = c(rep(0, each = 100)),
+  natural4 = c(rep(0, each = 100)),
+  natural5 = c(rep(0, each = 100)),
+  pp_groupPhytoplankton = c(rep(0, each = 100)),
+  pp_groupPlants = c(rep(0, each = 100)),
+  pp_groupCoral = c(rep(0, each = 100))) %>%
+  as.matrix()
+
+# use these generated values to plot background nutrients effect at algae and nat 1
+nut_predict2 <- as.data.frame(predict(object = model_full_back,
+                                          newmods = nut_values)) %>%
+  cbind(nut_values) 
+
+# plot predicted values as line, jitter observed effect sizes
+ggplot() +
+  geom_line(data = nut_predict2, aes(back_nut_stand, pred),  size = 1.5) +
+  geom_jitter(data = meta_smolish, aes(background_nut_stand, yi, colour = paper_num)) +
+  geom_ribbon(data = nut_predict2, aes(back_nut_stand, pred, ymin = ci.lb, ymax = ci.ub), fill = "grey3", alpha = .1) +
+  labs(x = "Background nutrients (umol/L)", y = "Effect Size", colour = "Climate Zone") +
+  geom_hline(yintercept=0, color="black", linetype="dashed") +
+  theme_white() +
+  theme(legend.position = "none")
+# OK this produces a figure, which is probably basically just the slope and intercept of hte background nutrients model. 
+  
+
+#ggsave("Output/Figures/background_nut_effect.png", device = "png",
+#       height = 9, width = 16, dpi = 400)
+
 # CODE GRAVEYARD ---------
+
+# Primary Producer group justification-----
+
+# Let's made a simple model with just primary producer group as a mod
+# Groups are Algae (FA + CA), Coral (En + Co + anemone), Phytoplankton (P), and Plants (S + mangrove)
+model_pp <- rma.mv(yi = yi,
+                   V = vi,
+                   slab = author,
+                   data = meta_smolish,
+                   method = "REML",
+                   mods = ~ pp_group ,
+                   random = ~ 1 | paper_num/indiv,
+                   test = "t")
+
+summary(model_pp) 
+# meta_final --> p-val = 0.0278
+# meta_umolL --> p-val = 0.0173
+
+# What if we split the pp up more?
+# Groups are Coral, Crustose algae, Endosymbionts, Fleshy algae, Phytoplankton, Seagrass,and Trees  
+model_ppz <- rma.mv(yi = yi,
+                    V = vi,
+                    slab = author,
+                    data = meta_smolish,
+                    method = "REML",
+                    mods = ~ pp_groupz ,
+                    random = ~ 1 | paper_num/indiv,
+                    test = "t")
+
+summary(model_ppz) 
+
+AIC(model_pp, model_ppz) # They're exactly the same AIC. Splitting them doesn't help. The test for moderators is significant in the model with fewer broader groups
+
+# Algae show larger effects vs the rest, what if we just look at them?
+# And phytoplankton are the best distributed, what if we just look at them?
+algae <- meta_final %>%
+  filter(pp_group == "Algae")
+# I just looked at the phytoplankton and the algae
+# Both had the same trend
+
+# Does algae effect vary by lat
+p_lat <- rma.mv(yi = yi,
+                V = vi,
+                slab = author,
+                data = algae,
+                method = "REML",
+                mods = ~ lat_stand,
+                random = ~ 1 | paper_num/indiv,
+                test = "t")
+
+summary(p_lat) # NO, p-val = 0.2787
+
+# Does algae effect vary by back nut
+p_back <- rma.mv(yi = yi,
+                 V = vi,
+                 slab = author,
+                 data = algae,
+                 method = "REML",
+                 mods = ~ background_nut_stand,
+                 random = ~ 1 | paper_num/indiv,
+                 test = "t")
+
+summary(p_back) # Sort of, coeff = 0.4783 and p-val = 0.0577
+# Slightly larger effect of pee on algae with higher levels of background nutrients
+
+# Does algae effect vary by temperature
+p_temp <- rma.mv(yi = yi,
+                 V = vi,
+                 slab = author,
+                 data = algae,
+                 method = "REML",
+                 mods = ~ temp_stand,
+                 random = ~ 1 | paper_num/indiv,
+                 test = "t")
+
+summary(p_temp) # NO, p-val = 0.1376
+
+
+# Are corals and endosymbionts different? NO
+corals <- meta_final %>% 
+  filter(pp_taxa == "Co" |pp_taxa == "En")
+
+model_coral <- rma.mv(yi = yi,
+                      V = vi,
+                      slab = author,
+                      data = corals,
+                      method = "REML",
+                      mods = ~ pp_taxa,
+                      random = ~ 1 | paper_num/indiv, 
+                      test = "t")
+
+summary(model_coral)
+# p-value is 0.8314 so no, there's no diff between corals and endosymbionts
+
+# Graph primary producer
+# How many papers in each bin?
+pp_n <- meta_final %>%
+  group_by(pp_group) %>%
+  summarise(n = n()) %>%
+  mutate(dummy = 1:4)
+
+# Pull coefficient estimates so I can graph them
+intercept_pp <- coef(summary(model_pp))[1,1] # extract the intercept
+
+# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
+
+pp_effect_sum <- coef(summary(model_pp)) %>%
+  mutate(pp_group = factor(c("Algae", "Coral", "Phytoplankton", "Plants")), 
+         effect = ifelse(pp_group != "Algae", estimate + intercept_pp,
+                         intercept_pp),
+         ci.lb = ifelse(pp_group != "Algae", ci.lb + intercept_pp,
+                        ci.lb),
+         ci.ub = ifelse(pp_group != "Algae", ci.ub + intercept_pp,
+                        ci.ub)) %>% # add intercept to other coefficients
+  left_join(pp_n, by = "pp_group")
+
+# GRAPH THIS?
+pp_labs <- c("Algae", "Coral", "Phytoplankton", "Plants")
+
+pp_n_labs <- c("n = 26", "n = 47", "n = 53", "n = 47")
+
+ggplot(pp_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = pp_group)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept = intercept_pp, color="white", linetype="dashed") +
+  theme_classic() +
+  labs(x = "Effect size", y = " ") +
+  scale_y_continuous(breaks = 1:length(pp_labs),
+                     labels = pp_labs,
+                     sec.axis = sec_axis(~.,
+                                         breaks = 1:length(pp_n_labs),
+                                         labels = pp_n_labs)) +
+  scale_colour_manual(values = rev(pal_star)) +
+  theme_black()+ 
+  theme(legend.position = "none")
+
+#ggsave("Output/Figures/effects_pp.png", device = "png",
+#       height = 9, width = 16, dpi = 400)
+
+
 
 # Exploration graphing --------
 # Make palette
@@ -697,7 +1010,9 @@ ggplot(meta_all_papers, aes(y = climate_zone, fill = climate_zone)) +
   theme_black() + theme(legend.position = "none")
 
 # Using climate2
-ggplot(meta_all_papers, aes(y = climate2, fill = climate2)) +
+meta_smolish %>%
+  distinct(paper_num, .keep_all = TRUE) %>%
+ggplot(aes(y = climate2, fill = climate2)) +
   geom_bar(stat="count") +
   scale_fill_manual(values = rev(pal2)) +
   labs( y = "Climate Zone", x = "Number of Papers") + 
@@ -746,7 +1061,7 @@ ggplot(meta_smol, aes(pp_group, climate2, colour = climate2)) +
   labs(x = "Primary Producer", y = "Climate Zone") +
   theme(axis.text.x = element_text(angle = 90))
 
-# Algae not in tropics, and Coral not in Temperates. Phytoplankton and Plants are spreak
+# Algae not in tropics, and Coral not in Temperates. Phytoplankton and Plants are spread
 
 # take a look at the distribution of consumers across latitudes
 ggplot(meta_final, aes(c_taxa, climate2, colour = climate2)) +
@@ -765,17 +1080,6 @@ ggplot(meta_final, aes(c_activity, climate2, colour = climate2)) +
   theme(legend.position = "none") +
   labs(x = "Consumer Activity Level", y = "Climate Zone")
 
-# Look at consumers vs pp??
-ggplot(meta_final, aes(c_taxa, pp_taxa, colour = climate2)) +
-  geom_jitter(size = 4, alpha = 0.3) +
-  theme_bw() +
-  labs(x = "Consumer Taxa", y = "Primary Producer Taxa", colour = "Climate") +
-  scale_x_discrete(labels = c("Birds", "Fish", "Echinoderms", "Gastropods", "Jellies", "Bivalves", "Sponges", "Hydroid"))+
-  theme(axis.text.x = element_text(angle = 30)) +
-  scale_y_discrete(labels = c("Calcareous algae", "Coral", "Endosymbiont", "Fleshy Algae", "Mangrove", "Phytoplankton", "Seagrass")) +
-  theme(axis.text = element_text(size = 16),
-        axis.title = element_text(size = 18)) +
-  scale_colour_manual(values = rev(pal2))
 
 # a lot of bivalve papers coming out of temperate regions
 
@@ -1246,23 +1550,6 @@ model_multi2 <- rma.mv(yi = yi,
 
 summary(model_multi2)
 
-# Compare corals to endosymbionts? -----
-corals <- meta_final %>% 
-  filter(pp_taxa == "Co" |pp_taxa == "En")
-
-model_coral <- rma.mv(yi = yi,
-                      V = vi,
-                      slab = author,
-                      data = corals,
-                      method = "REML",
-                      mods = ~ pp_taxa,
-                      random = ~ 1 | paper_num/indiv, 
-                      test = "t")
-
-summary(model_coral)
-# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
-# p-value is 0.8314 so no, there's no diff between corals and endosymbionts
-# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
 
 # How many papers in each bin?
 coral_n <- corals %>%
@@ -1677,129 +1964,6 @@ model_activity_lmer <- lmer(added_nh4 ~ c_activity + (1|paper_num), data = meta_
 summary(model_activity_lmer)
 # Not really
 
-# Primary producer multilevel model -----
-# Groups are Algae (FA + CA), Coral (En + Co + anemone), Phytoplankton (P), and Plants (S + mangrove)
-model_pp <- rma.mv(yi = yi,
-                   V = vi,
-                   slab = author,
-                   data = meta_smolish,
-                   method = "REML",
-                   mods = ~ pp_group ,
-                   random = ~ 1 | paper_num/indiv,
-                   test = "t")
-
-summary(model_pp) 
-# meta_final --> p-val = 0.0278
-# meta_umolL --> p-val = 0.0173
-
-# OK so producer ID matters, algae show larger effects vs the rest
-# Ok phytoplankton are the best distributed let's just look at them for a sec
-algae <- meta_final %>%
-  filter(pp_group == "Algae")
-# I just looked at the phytoplankton and the algae
-# Both had the same trend
-
-# Does algae effect vary by lat
-p_lat <- rma.mv(yi = yi,
-                V = vi,
-                slab = author,
-                data = algae,
-                method = "REML",
-                mods = ~ abs_lat,
-                random = ~ 1 | paper_num/indiv,
-                test = "t")
-
-summary(p_lat) # NO, p-val = 0.2787
-
-# Does algae effect vary by back nut
-p_back <- rma.mv(yi = yi,
-                 V = vi,
-                 slab = author,
-                 data = algae,
-                 method = "REML",
-                 mods = ~ background_nut,
-                 random = ~ 1 | paper_num/indiv,
-                 test = "t")
-
-summary(p_back) # Not really, coeff = 0.0666 and p-val = 0.0577
-# Slightly larger effect of pee on algae with higher levels of background nutrients
-
-# Does algae effect vary by added nut or added nh4
-# Use meta_umolL because that only has the measured nitrogen added in umol/L
-
-algae_umol <- meta_umolL %>%
-  filter(pp_group == "Algae")
-#sample size is only 10 we can't do this
-
-p_added_N <- rma.mv(yi = yi,
-                    V = vi,
-                    slab = author,
-                    data = algae,
-                    method = "REML",
-                    mods = ~ added_N,
-                    random = ~ 1 | paper_num/indiv,
-                    test = "t")
-
-summary(p_added_N) # NO, p-val = 0.7897
-
-# OKKKK does algae effect vary by temperature
-p_temp <- rma.mv(yi = yi,
-                 V = vi,
-                 slab = author,
-                 data = algae,
-                 method = "REML",
-                 mods = ~ temp,
-                 random = ~ 1 | paper_num/indiv,
-                 test = "t")
-
-summary(p_temp) # NO, p-val = 0.1676
-
-# OK SO 
-
-# Graph primary producer
-# How many papers in each bin?
-pp_n <- meta_final %>%
-  group_by(pp_group) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:4)
-
-# Pull coefficient estimates so I can graph them
-intercept_pp <- coef(summary(model_pp))[1,1] # extract the intercept
-
-# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
-
-pp_effect_sum <- coef(summary(model_pp)) %>%
-  mutate(pp_group = factor(c("Algae", "Coral", "Phytoplankton", "Plants")), 
-         effect = ifelse(pp_group != "Algae", estimate + intercept_pp,
-                         intercept_pp),
-         ci.lb = ifelse(pp_group != "Algae", ci.lb + intercept_pp,
-                        ci.lb),
-         ci.ub = ifelse(pp_group != "Algae", ci.ub + intercept_pp,
-                        ci.ub)) %>% # add intercept to other coefficients
-  left_join(pp_n, by = "pp_group")
-
-# GRAPH THIS?
-pp_labs <- c("Algae", "Coral", "Phytoplankton", "Plants")
-
-pp_n_labs <- c("n = 26", "n = 47", "n = 53", "n = 47")
-
-ggplot(pp_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = pp_group)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept = intercept_pp, color="white", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size", y = " ") +
-  scale_y_continuous(breaks = 1:length(pp_labs),
-                     labels = pp_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(pp_n_labs),
-                                         labels = pp_n_labs)) +
-  scale_colour_manual(values = rev(pal_star)) +
-  theme_black()+ 
-  theme(legend.position = "none")
-
-#ggsave("Output/Figures/effects_pp.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
 
 
 # Interaction latitude x background nutrients -----
