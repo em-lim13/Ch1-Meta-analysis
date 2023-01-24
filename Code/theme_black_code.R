@@ -77,7 +77,7 @@ theme_white = function(base_size = 12, base_family = "") {
       panel.grid.minor = element_line(color = "white"),  
       panel.spacing = unit(0.5, "lines"),   
       # Specify facetting options
-      strip.background = element_rect(fill = "grey30", color = "grey10"),  
+      strip.background = element_rect(fill = "grey80", color = "grey30"),  
       strip.text.x = element_text(size = base_size*2.5, color = "black"),  
       strip.text.y = element_text(size = base_size*2.5, color = "black",angle = -90),  
       # Specify plot options
