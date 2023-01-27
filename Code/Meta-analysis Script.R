@@ -256,7 +256,6 @@ model_full_lat <- rma.mv(yi = yi,
                     random = ~ 1 | paper_num/indiv, 
                     test = "t")
 
-summary(model_full_lat)
 
 model_lat <- rma.mv(yi = yi,
                          V = vi,
@@ -840,17 +839,17 @@ nut_predict2 <- as.data.frame(predict(object = model_full_back,
 # plot predicted values as line, jitter observed effect sizes
 ggplot() +
   geom_line(data = nut_predict2, aes(back_nut_stand, pred),  size = 1.5) +
-  geom_jitter(data = meta_smolish, aes(background_nut_stand, yi, colour = paper_num)) +
+  geom_jitter(data = meta_smolish, 
+              aes(background_nut_stand, yi, colour = paper_num, size = 1.5)) +
   geom_ribbon(data = nut_predict2, aes(back_nut_stand, pred, ymin = ci.lb, ymax = ci.ub), fill = "grey3", alpha = .1) +
   labs(x = "Background nutrients (umol/L)", y = "Effect Size", colour = "Climate Zone") +
-  geom_hline(yintercept=0, color="black", linetype="dashed") +
+  geom_hline(yintercept = 0, color = "black", linetype = "dashed", size = 1.5) +
   theme_white() +
   theme(legend.position = "none")
 # OK this produces a figure, which is probably basically just the slope and intercept of hte background nutrients model. 
-  
 
-#ggsave("Output/Figures/background_nut_effect.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
+ggsave("Output/Pub_figs/background_nut_effect.png", device = "png",
+       height = 9, width = 16, dpi = 400)
 
 # CODE GRAVEYARD ---------
 
