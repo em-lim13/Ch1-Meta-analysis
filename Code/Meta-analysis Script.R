@@ -776,17 +776,24 @@ meta_smolish %>%
 # Figures ------
 # Look at consumers vs pp vs region
 # combine jellies and hydroids!
+pal <- pnw_palette("Bay", 6)
+pal2 <- pnw_palette("Bay", 4)
 
 meta_jelly <- meta_smolish %>%
-  mutate(c_taxa_new = ifelse(c_taxa == "SI" | c_taxa == "MI", "Cn", c_taxa))
-  
-ggplot(meta_smolish, aes(c_taxa, pp_taxa, colour = climate2)) +
-  geom_jitter(size = 4, alpha = 0.3) +
+  mutate(c_taxa_new = as.factor(case_when(c_taxa == "SI" ~ "Cn",
+                            c_taxa == "MI" ~ "Cn", 
+                            TRUE ~ as.character(c_taxa))),
+        c_taxa_new = factor(c_taxa_new, levels = c("Bi", "F", "E", "G", "B", "SP", "Cn")),
+        pp_taxa = factor(pp_taxa, levels = rev(c("Co", "En", "P", "CA", "FA", "S", "O"))))
+
+#
+ggplot(meta_jelly, aes(c_taxa_new, pp_taxa, colour = climate2)) +
+  geom_jitter(size = 4, alpha = 0.3, width = 0.25, height = 0.25) +
   theme_bw() +
-  labs(x = "Consumer Taxa", y = "Primary Producer Taxa", colour = "Climate") +
-  scale_x_discrete(labels = c("Birds", "Fish", "Echinoderms", "Gastropods", "Jellies", "Bivalves", "Sponges", "Hydroid"))+
+  labs(x = "Consumer taxa", y = "Primary producer taxa", colour = "Climate") +
+  scale_x_discrete(labels = c("Birds", "Fish", "Echinoderms", "Gastropods", "Bivalves", "Sponges", "Cnidaria"))+
   theme(axis.text.x = element_text(angle = 30)) +
-  scale_y_discrete(labels = c("Calcareous algae", "Coral", "Endosymbiont", "Fleshy Algae", "Mangrove", "Phytoplankton", "Seagrass")) +
+  scale_y_discrete(labels = c("Mangrove", "Seagrass", "Fleshy Algae", "Calcareous algae", "Phytoplankton", "Endosymbiont", "Coral")) +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18)) +
   scale_colour_manual(values = rev(pal2))
