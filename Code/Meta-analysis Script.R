@@ -808,8 +808,8 @@ ggplot(meta_jelly, aes(c_taxa_new, pp_taxa, colour = climate2, fill = climate2, 
   scale_fill_manual(values = rev(pal2)) +
   scale_shape_manual(values = c(21, 22, 23, 24, 25))
 
-ggsave("Output/Pub_figs/taxa_region.png", device = "png",
-       height = 9, width = 16, dpi = 400)
+#ggsave("Output/Pub_figs/taxa_region.png", device = "png",
+#       height = 9, width = 16, dpi = 400)
   
 
 # Graph background nutrients ---- 
