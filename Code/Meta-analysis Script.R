@@ -52,7 +52,9 @@ meta_full <- read_csv("Output/Data/march_meta.csv") %>%
                                          lat_dec >= -35 ~ "SST",
                                          lat_dec >= -66.5 ~ "ST",
                                          lat_dec < -66.5 ~ "SP"), 
-                                levels = c("ST", "SST", "T", "NST", "NT", "NP"))) # assign climate zones based on a code, makes it easier and less prone to mistakes
+                                levels = c("ST", "SST", "T", "NST", "NT", "NP"))) %>%
+  mutate(comments = case_when(paper_num == 2 ~ "they had no limpet vs limpet vs dead limpet, looked at algal growth on shell. Spectral imaging was only able to get a relative 'biomass' so it's sort of an arbitraty scale. They had more than one sp of algae. but the control and the dead limpet were exactly the same so it doesn't matter which control I use. Background = https://www.int-res.com/articles/meps/161/m161p213.pdf",
+     TRUE ~ as.character(comments))) # assign climate zones based on a code, makes it easier and less prone to mistakes
 # using 23.45 as the cut off bc that's between the cancer and capricorn?
 # Another paper set 23.5 - 23.5, and set temperate as 30-40
 
@@ -192,7 +194,7 @@ model_all <- rma.mv(yi = yi,
 
 summary(model_all)
 
-vif(model_all) # Lat and temp are correlated
+metafor::vif(model_all) # Lat and temp are correlated
 # intercept tells me what the value is at the natural 1 pp group algae and mean of all other variables
 # looking at the full data (took out all added_N terms) the coefficients are basically hte same
 # so we can look at the reduced data and it's saying something very similar to the full data
@@ -200,7 +202,7 @@ vif(model_all) # Lat and temp are correlated
 # In general, all three ways I’ve tried to do these stats give a similar answer. Identity of the pp matters (algae has a stronger response than others), and background nutrients is weak/moderate positive effect. This makes both # Hannah and I feel better. All methods point to context dependence!
 
 # Correlation between variables
-cor(cbind(meta_final$lat_stand, meta_final$background_nut_stand, meta_final$temp_stand), use = "complete.obs")
+cor(cbind(meta_smolish$lat_stand, meta_smolish$background_nut_stand, meta_smolish$temp_stand), use = "complete.obs")
 # so temp, lat, and background_nutrients are correlated (|value| < 0.5)
 # So maybe we should go back to AIC because we shouldn't have these three in the same model
 # BC they're correlated, there might be a generally negative relationship between lat/temp/back_nut and effect but within that slope the model things back_nut has a positive effect
@@ -870,6 +872,54 @@ ggplot() +
 
 #ggsave("Output/Pub_figs/background_nut_effect.png", device = "png",
 #       height = 9, width = 16, dpi = 400)
+
+
+# Let's make a table of the different pp responses! -----
+
+# I have a sort of messy response column
+# Eg. could lump things together a bit more
+
+# Percent changes
+# total area = percent change of total area
+# shoot change = proportional change in shoot density %
+# skeletal extension (percent) = Skeletal extension rates, as a percentage of total linear extension per day
+
+# gross production (O2 mol/L/h)
+# net photosynthesis (umol O2/g/h)
+# productivity was actually growth (per day)
+
+# OK SO what I think I want is twofold
+# I want to present a table of the metrics I got means of to estimate productivity
+# That will be something like growth (change/time), biomass, percent cover, density, etc
+# AND THEN I probably want to report what sorts of things people were measuring the growth rates of!
+# I went through and did a bunch of post - pre calculations for studies where they gave me measurements over timepoints. but I didn't divide by time so I don't think these are actually growth rates
+
+
+growth_metric <- meta_smolish %>%
+  mutate(response_lump = 
+  case_when(response == "growth (linear extension in cm.y_1)" |
+              response == "productivity" ~ "growth", # seagrass/day
+            paper_num == 2 ~ "biomass (relative units)",
+            response == "belowground biomass" |
+              response == "aboveground biomass" |
+              response == "blade biomass"  ~ "biomass",
+            response == "gross production" |
+              response == "net photosynthesis" |
+              response == "production" ~ "photosynthesis",
+            response == "percent cover. Just ambient" ~ "percent cover",
+            response == "tissue dry weight" ~ "dry weight",
+            response == "blade length" | 
+              response == "shoot length"| 
+              response == "leaf length" | 
+              response == "shoot size" ~ "leaf length",
+            response == "protein" ~ "tissue protein",
+            TRUE ~ as.character(response))) %>%
+  count(response_lump)
+
+# Look at individual responses --------
+response <- meta_smolish %>%
+  filter(response == "shoot size") %>%
+  select(paper_num, title, source, pp_species_family_comm, pp_family, pp_taxa, pp_phyla, response, growth_rate, comments)
 
 # CODE GRAVEYARD ---------
 
