@@ -14,7 +14,7 @@ library(esc)
 library(RColorBrewer)
 library(patchwork)
 
-source(file = "Code/theme_black_code.R")
+source(file = "Code/Plot_themes.R")
 theme_set(theme_classic())
 
 # Set preferences so I can see all my columns
@@ -22,7 +22,6 @@ rstudioapi::writeRStudioPreference("data_viewer_max_columns", 1000L)
 
 # mine data from papers using this site
 # https://automeris.io/WebPlotDigitizer/
-
 
 # Load data
 # And do a million manipulations......
@@ -392,14 +391,16 @@ nat_plot <- effect_plot(nat_effect_sum, ci.lb_adjust,ci.up_adjust, nat_bin, rev(
 pp_plot <- effect_plot(pp_effect_sum, ci.lb_adjust, ci.up_adjust, pp_group, rev(pal_star), pp_labs, pp_n_labs) +
   xlab("Effect Size")
 
-# Effect size plot ------
+# Effect size plot (back nut model) ------
 back_nut_plot + nat_plot + pp_plot + 
-  plot_layout(ncol = 1, heights = unit(c(1, 4, 5), c("cm", "null"))) + plot_annotation(tag_levels =  "A")
+  plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null"))) + plot_annotation(tag_levels =  "A")
 
-#ggsave("Output/Pub_figs/full_back_nut_mod.png", device = "png",
+#ggsave("Output/Pub_figs/bn_effect_size_mod.png", device = "png",
 #       height = 9, width = 16, dpi = 400)
 
-# Graph the other models!
+# Graph the other models! --------
+# do the same thing for a supplement figure
+
 # Lat effect size
 lat_effect_sum <- coef(summary(model_full_lat)) %>%
   slice(-(3:9)) %>%
@@ -407,6 +408,52 @@ lat_effect_sum <- coef(summary(model_full_lat)) %>%
   rownames_to_column() %>%
   mutate(dummy = 1, effect = estimate)
 
+# Experimental design effect sizes
+int_nat2 <- coef(summary(model_full_lat))[1,1] # extract the intercept
+
+# edit bin labels
+nat_effect_sum2 <- coef(summary(model_full_lat)) %>%
+  slice(-(2)) %>%
+  slice(-(6:8)) %>%
+  mutate(nat_bin = factor(c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")), # add intercept to the estimated coefficient
+         effect = ifelse(nat_bin != "Field: unstocked", estimate + int_nat2,
+                         int_nat2), # add intercept to the estimated coefficient
+         ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
+         ci.up_adjust = effect + (1.96*se)) %>% 
+  left_join(nat_n, by = "nat_bin")
+
+# Primary producer effect sizes
+int_pp2 <- coef(summary(model_full_lat))[1,1] # extract the intercept
+
+# Pull rest of the coefficients, add a column for pp, and adjust the estimates to reflect the estimated effect sizes
+pp_effect_sum2 <- coef(summary(model_full_lat)) %>%
+  slice(-(2:6)) %>%
+  mutate(pp_group = factor(c("Algae", "Coral", "Phytoplankton", "Plants")), 
+         effect = ifelse(pp_group != "Algae", estimate + int_pp2,
+                         int_pp2), # add intercept to the estimated coefficient
+         ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
+         ci.up_adjust = effect + (1.96*se)) %>% 
+  left_join(pp_n, by = "pp_group")
+
+# Labels
+lat_labs <- c("Absolute latitude")
+lat_plot <- effect_plot(lat_effect_sum, ci.lb, ci.ub, rowname, pal_sm[3], lat_labs, back_n_labs) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank())
+
+nat_plot2 <- effect_plot(nat_effect_sum2, ci.lb_adjust,ci.up_adjust, nat_bin, rev(pal_star), nat_labs, nat_n_labs) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank()) 
+
+pp_plot2 <- effect_plot(pp_effect_sum2, ci.lb_adjust, ci.up_adjust, pp_group, rev(pal_star), pp_labs, pp_n_labs) +
+  xlab("Effect Size")
+
+# Lat effect size plot ------
+lat_plot + nat_plot2 + pp_plot2 + 
+  plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null"))) + plot_annotation(tag_levels =  "A")
+
+#ggsave("Output/Pub_figs/lat_effect_size_mod.png", device = "png",
+#       height = 9, width = 16, dpi = 400)
 
 # Temperature effect size
 temp_effect_sum <- coef(summary(model_full_temp)) %>%
@@ -415,7 +462,54 @@ temp_effect_sum <- coef(summary(model_full_temp)) %>%
   rownames_to_column() %>%
   mutate(dummy = 1, effect = estimate)
 
-# Consumers vs pp vs lat
+# Experimental design effect sizes
+int_nat3 <- coef(summary(model_full_temp))[1,1] # extract the intercept
+
+# edit bin labels
+nat_effect_sum3 <- coef(summary(model_full_temp)) %>%
+  slice(-(2)) %>%
+  slice(-(6:8)) %>%
+  mutate(nat_bin = factor(c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")), # add intercept to the estimated coefficient
+         effect = ifelse(nat_bin != "Field: unstocked", estimate + int_nat3,
+                         int_nat3), # add intercept to the estimated coefficient
+         ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
+         ci.up_adjust = effect + (1.96*se)) %>% 
+  left_join(nat_n, by = "nat_bin")
+
+# Primary producer effect sizes
+int_pp3 <- coef(summary(model_full_temp))[1,1] # extract the intercept
+
+# Pull rest of the coefficients, add a column for pp, and adjust the estimates to reflect the estimated effect sizes
+pp_effect_sum3 <- coef(summary(model_full_temp)) %>%
+  slice(-(2:6)) %>%
+  mutate(pp_group = factor(c("Algae", "Coral", "Phytoplankton", "Plants")), 
+         effect = ifelse(pp_group != "Algae", estimate + int_pp3,
+                         int_pp3), # add intercept to the estimated coefficient
+         ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
+         ci.up_adjust = effect + (1.96*se)) %>% 
+  left_join(pp_n, by = "pp_group")
+
+# Labels
+temp_labs <- c("Temperature")
+temp_plot <- effect_plot(temp_effect_sum, ci.lb, ci.ub, rowname, pal_sm[3], temp_labs, back_n_labs) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank())
+
+nat_plot3 <- effect_plot(nat_effect_sum3, ci.lb_adjust,ci.up_adjust, nat_bin, rev(pal_star), nat_labs, nat_n_labs) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank()) 
+
+pp_plot3 <- effect_plot(pp_effect_sum3, ci.lb_adjust, ci.up_adjust, pp_group, rev(pal_star), pp_labs, pp_n_labs) +
+  xlab("Effect Size")
+
+# Temp effect size plot ------
+temp_plot + nat_plot3 + pp_plot3 + 
+  plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null"))) + plot_annotation(tag_levels =  "A")
+
+#ggsave("Output/Pub_figs/temp_effect_size_mod.png", device = "png",
+#       height = 9, width = 16, dpi = 400)
+
+# Consumers vs pp vs lat -----
 pal <- pnw_palette("Bay", 6)
 pal2 <- pnw_palette("Bay", 4)
 
