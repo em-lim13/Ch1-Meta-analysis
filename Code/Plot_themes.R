@@ -1,4 +1,7 @@
 library(tidyverse)
+library(ggplot2)
+
+# Theme black ----
 theme_black = function(base_size = 12, base_family = "") {
   
   theme_grey(base_size = base_size, base_family = base_family) %+replace%
@@ -44,6 +47,7 @@ theme_black = function(base_size = 12, base_family = "") {
   
 }
 
+# Same as theme black but white ------
 theme_white = function(base_size = 12, base_family = "") {
   
   theme_grey(base_size = base_size, base_family = base_family) %+replace%
@@ -87,4 +91,24 @@ theme_white = function(base_size = 12, base_family = "") {
       
     )
   
+}
+
+# Plotting effect sizes -----
+effect_plot <- function(data, xmin, xmax, colour, pal, lab1, lab2) {
+  ggplot(data, aes(x = effect, y = dummy, xmin = {{xmin}}, xmax = {{xmax}}, colour = {{colour}})) +
+    geom_point(size = 6) +
+    geom_errorbar(width = .5, size = 2) +
+    geom_vline(xintercept=0, color="black", linetype="dashed") +
+    labs(x = "", y = " ")  +
+    theme_white()+ 
+    theme(legend.position = "none",
+          plot.margin = unit(c(0,0,0,0), "cm"),
+          plot.background = element_rect(colour = "black", fill=NA, size=1)) +
+    xlim(c(-0.5, 2)) +
+    scale_colour_manual(values = {{pal}}) +
+    scale_y_continuous(breaks = 1:length({{lab1}}),
+                       labels = {{lab1}},
+                       sec.axis = sec_axis(~.,
+                                           breaks = 1:length({{lab2}}),
+                                           labels = {{lab2}}))
 }
