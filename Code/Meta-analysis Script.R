@@ -3,7 +3,6 @@
 # Dec 2021
 
 # Load packages and data -------
-
 library(tidyverse)
 library(ggplot2)
 library(PNWColors)
@@ -27,7 +26,7 @@ rstudioapi::writeRStudioPreference("data_viewer_max_columns", 1000L)
 
 # Load data
 # And do a million manipulations......
-meta_full <- read_csv("Output/Data/march_meta.csv") %>%
+meta_full <- read_csv("Output/Data/march_meta2023.csv") %>%
   mutate(sd_treatment = replace_na(sd_treatment, 999), # assigning a dummy to replace
          sd_control = replace_na(sd_control, 999)) %>% # assigning a dummy to replace
   mutate(sd_treatment = ifelse(sd_treatment == 999, se_treatment*sqrt(treatment_n), sd_treatment), # replacing that dummy with the estimated SD
@@ -35,47 +34,44 @@ meta_full <- read_csv("Output/Data/march_meta.csv") %>%
          natural = as.factor(natural),
          pp_taxa = as.factor(pp_taxa),
          abs_lat = abs(lat_dec), # creating an absolute value lat
-         log_nut = log(background_nut),
-         climate2 = factor(case_when(abs_lat <= 23.45 ~ "Tropics",
+         climate = factor(case_when(abs_lat <= 23.45 ~ "Tropics",
                                      abs_lat <= 35 ~ "Subtropics",
                                      abs_lat <= 60 ~ "Temperate",
                                      abs_lat > 60 ~ "Polar"),
          levels = c("Tropics", "Subtropics", "Temperate", "Polar")), # New column where I don't distinguish between North subtropics/temperates and South subtropics/temperates
-         c_activity = ifelse(c_taxa == "Bi" | c_taxa == "F", "Vertebrate",
-                        ifelse(c_taxa == "SP" | c_taxa == "B" | c_taxa == "SI", "Sessile Invert", "Mobile Invert")),
-         c_activity = factor(c_activity, levels = c("Vertebrate", "Mobile Invert", "Sessile Invert")), # activity levels for consumers
-         c_taxa = factor(c_taxa, levels = c("Bi", "F", "Cr", "E", "G", "MI", "B", "SP", "SI")), # reorder c_taxa
-         climate_zone = factor(case_when(lat_dec >= 66.5 ~ "NP",
-                                         lat_dec >= 35 ~ "NT",
-                                         lat_dec >= 23.45 ~ "NST",
-                                         lat_dec >= -23.45 ~ "T",
-                                         lat_dec >= -35 ~ "SST",
-                                         lat_dec >= -66.5 ~ "ST",
-                                         lat_dec < -66.5 ~ "SP"), 
-                                levels = c("ST", "SST", "T", "NST", "NT", "NP"))) %>%
-  mutate(comments = case_when(paper_num == 2 ~ "they had no limpet vs limpet vs dead limpet, looked at algal growth on shell. Spectral imaging was only able to get a relative 'biomass' so it's sort of an arbitraty scale. They had more than one sp of algae. but the control and the dead limpet were exactly the same so it doesn't matter which control I use. Background = https://www.int-res.com/articles/meps/161/m161p213.pdf",
-     TRUE ~ as.character(comments))) # assign climate zones based on a code, makes it easier and less prone to mistakes
+         c_group = case_when(c_taxa == "Bi" ~ "Bird",
+                             c_taxa == "F" ~ "Fish",
+                             c_taxa == "E" ~ "Echinoderm",
+                             c_taxa == "G" ~ "Mollusc", 
+                             c_taxa == "B" ~ "Mollusc",
+                             c_taxa == "SP" ~ "Sponge",
+                             c_taxa == "SI" ~ "Cnidaria",
+                             c_taxa == "MI" ~ "Cnidaria"),
+         c_group = factor(c_group, levels = c("Bird", "Fish", "Echinoderm", "Mollusc", "Cnidaria", "Sponge")),
+         nat_bin = case_when(natural == 1 ~ "Field: unstocked",
+                             natural == 2 ~ "Field: PP stocked",
+                             natural == 3 ~ "Field: animals stocked",
+                             natural == 4 ~ "Field: both stocked",
+                             natural == 5 ~ "Mesocosm"),
+         nat_bin = factor(nat_bin, levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")))
+
 # using 23.45 as the cut off bc that's between the cancer and capricorn?
 # Another paper set 23.5 - 23.5, and set temperate as 30-40
 
-# The "misc mobile inverts" are jellies and the "misc sesssile inverts" are a single hydroid
-
 # Calculate effect sizes -------
-
 ##### I think I need to manually exclude the negative means because it's still calculating effect sizes for those
 meta_no_neg <- meta_full %>%
   filter(mean_control > 0) %>%
   filter(mean_treatment > 0)
-
 
 # We lose 5 rows when we remove 0's and 4 when we remove negatives (9 total)
 # should I switch to Hedges g????
 # Should I add like 0.0000000000001 to all the 0's?
  # NO DO NOT DO THIS IT RUINS EVERYTHING EVERY STATISTICAL ANALYSIS BECOMES P = 0.99
 
-meta_final <- meta_no_neg %>%
+meta_calc <- meta_no_neg %>%
   escalc(measure = "ROM", data = meta_no_neg, # ROM for log transformed ratio of means
-       m1i = mean_treatment, sd1i = sd_treatment,  # log(treatment/control)
+       m1i = mean_treatment, sd1i = sd_treatment, # log(treatment/control)
        m2i = mean_control, sd2i = sd_control,
        n1i = treatment_n, n2i = control_n) %>%
   rowwise() %>%
@@ -84,50 +80,34 @@ meta_final <- meta_no_neg %>%
          added_N = na_if((sum_all_N_treat - sum_all_N_cont), 0),
          added_nh4 = na_if((sum(nh4_treatment, na.rm = TRUE) - sum(nh4_control, na.rm = TRUE)), 0)) %>%
   ungroup() %>%
-  mutate(pp_group = as.factor(case_when(pp_taxa == "CA" | pp_taxa == "FA" ~ 'Algae',
-                              pp_taxa == "En" | pp_taxa == "Co" ~ 'Coral',
-                              pp_taxa == "P" ~ 'Phytoplankton',
-                              pp_taxa == "S" ~ "Plants",
-                              pp_phyla == "Tracheophyta" ~ "Plants",
-                              pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")),
-         pp_groupz = as.factor(case_when(pp_taxa == "CA"  ~ 'Crustose algae',
-                                         pp_taxa == "FA" ~ 'Fleshy algae',
-                                         pp_taxa == "En" ~ "Endo",
-                                         pp_taxa == "Co" ~ 'Coral',
-                                         pp_taxa == "P" ~ 'Phytoplankton',
-                                         pp_taxa == "S" ~ "Seagrass",
-                                         pp_taxa == "O" & pp_phyla == "Tracheophyta" ~ "Trees",
-                                         pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")),
+  mutate(pp_group = as.factor(case_when(
+          pp_taxa == "CA" | pp_taxa == "FA" ~ 'Algae',
+          pp_taxa == "En" | pp_taxa == "Co" ~ 'Coral',
+          pp_taxa == "P" ~ 'Phytoplankton',
+          pp_taxa == "S" ~ "Plants",
+          pp_phyla == "Tracheophyta" ~ "Plants",
+          pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")),
+         pp_groupz = as.factor(case_when(
+           pp_taxa == "CA"  ~ 'Crustose algae',
+           pp_taxa == "FA" ~ 'Fleshy algae',
+           pp_taxa == "En" ~ "Endo",
+           pp_taxa == "Co" ~ 'Coral',
+           pp_taxa == "P" ~ 'Phytoplankton',
+           pp_taxa == "S" ~ "Seagrass",
+           pp_taxa == "O" & pp_phyla == "Tracheophyta" ~ "Trees",
+           pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")),
          lat_stand = base::scale(abs_lat),
          background_nut_stand = scale(background_nut),
          added_N_stand = scale(added_N),
          temp_stand = scale(temp))
 
-
-# Load papers that I can't use but that mostly pass the criteria
-meta_rejected <- read_csv("Output/Data/rejected_papers.csv") %>%
-  mutate(abs_lat = abs(lat_dec),
-         climate2 = factor(case_when(abs_lat <= 23.45 ~ "Tropics",
-                                     abs_lat <= 35 ~ "Subtropics",
-                                     abs_lat <= 60 ~ "Temperate",
-                                     abs_lat > 60 ~ "Polar"),
-                           levels = c("Tropics", "Subtropics", "Temperate", "Polar"))) %>%
-  dplyr::select(author, title, year, lat_dec, long_dec, climate_zone, climate2)
-
-# Make a data frame where there's only one row for each paper to graph where the papers are from
-meta_all_papers <- meta_full %>%
-  distinct(paper_num, .keep_all = TRUE) %>%
-  dplyr::select(author, title, year, lat_dec, long_dec, climate_zone, climate2) %>%
-  rbind(meta_rejected) # df with all the papers I'm using and the papers I can't use but that still mostly meet the criteria
-
 # Want all models to use the same data!
 # this df only makes sure to standardize the df between the three correlated variables, and is for use in models without added_N
-meta_smolish <- meta_final %>%
+meta_data <- meta_calc %>%
   drop_na(background_nut_stand) %>%
   drop_na(temp_stand) %>%
   mutate(indiv = as.factor(indiv),
          paper_num = as.factor(paper_num))
-
 
 # Multilevel models ------
 # Link to book with help:
@@ -186,7 +166,7 @@ meta_smolish <- meta_final %>%
 model_all <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
-                          data = meta_smolish,
+                          data = meta_data,
                           method = "REML",
                           mods = ~ lat_stand + background_nut_stand  + temp_stand + natural + pp_group + lat_stand:background_nut_stand +  temp_stand:background_nut_stand ,
                           random = ~ 1 | paper_num/indiv, 
@@ -202,7 +182,7 @@ metafor::vif(model_all) # Lat and temp are correlated
 # In general, all three ways I’ve tried to do these stats give a similar answer. Identity of the pp matters (algae has a stronger response than others), and background nutrients is weak/moderate positive effect. This makes both # Hannah and I feel better. All methods point to context dependence!
 
 # Correlation between variables
-cor(cbind(meta_smolish$lat_stand, meta_smolish$background_nut_stand, meta_smolish$temp_stand), use = "complete.obs")
+cor(cbind(meta_data$lat_stand, meta_data$background_nut_stand, meta_data$temp_stand), use = "complete.obs")
 # so temp, lat, and background_nutrients are correlated (|value| < 0.5)
 # So maybe we should go back to AIC because we shouldn't have these three in the same model
 # BC they're correlated, there might be a generally negative relationship between lat/temp/back_nut and effect but within that slope the model things back_nut has a positive effect
@@ -215,7 +195,7 @@ cor(cbind(meta_smolish$lat_stand, meta_smolish$background_nut_stand, meta_smolis
 model_all_l3_removed <- rma.mv(yi = yi,
                     V = vi,
                     slab = author,
-                    data = meta_smolish,
+                    data = meta_data,
                     method = "REML",
                     mods = ~ lat_stand + background_nut_stand  + temp_stand + natural + pp_group + lat_stand:background_nut_stand +  temp_stand:background_nut_stand,
                     random = ~ 1 | paper_num/indiv, 
@@ -252,29 +232,19 @@ anova(model_all, model_all_l3_removed)
 model_full_lat <- rma.mv(yi = yi,
                     V = vi,
                     slab = author,
-                    data = meta_smolish,
+                    data = meta_data,
                     method = "REML",
                     mods = ~ lat_stand  + natural + pp_group,
                     random = ~ 1 | paper_num/indiv, 
                     test = "t")
 
-
-model_lat <- rma.mv(yi = yi,
-                         V = vi,
-                         slab = author,
-                         data = meta_smolish,
-                         method = "REML",
-                         mods = ~ lat_stand,
-                         random = ~ 1 | paper_num/indiv, 
-                         test = "t")
-
-summary(model_lat)
+summary(model_full_lat)
 
 # Full model with background_nutrients
 model_full_back <- rma.mv(yi = yi,
                                 V = vi,
                                 slab = author,
-                                data = meta_smolish,
+                                data = meta_data,
                                 method = "REML",
                                 mods = ~ background_nut_stand  + natural + pp_group,
                                 random = ~ 1 | paper_num/indiv, 
@@ -287,7 +257,7 @@ summary(model_full_back)
 model_full_temp <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
-                          data = meta_smolish,
+                          data = meta_data,
                           method = "REML",
                           mods = ~ temp_stand + natural + pp_group,
                           random = ~ 1 | paper_num/indiv, 
@@ -299,7 +269,7 @@ summary(model_full_temp)
 model_null <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
-                          data = meta_smolish,
+                          data = meta_data,
                           method = "REML",
                           mods = ~ 1,
                           random = ~ 1 | paper_num/indiv, 
@@ -311,7 +281,7 @@ summary(model_null)
 model_cat <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
-                          data = meta_smolish,
+                          data = meta_data,
                           method = "REML",
                           mods = ~ pp_group + natural,
                           random = ~ 1 | paper_num/indiv, 
@@ -337,94 +307,30 @@ AIC_tab <- AIC(model_full_lat, model_full_back, model_full_temp, model_null, mod
 # Hannah advocates for just looking at the effect size (coefficient)
 
 
-# 3 plots: --------
-# Plot with pp_groups coefficient + CI
-# Plot with natural coefficient + CI
-# Plot with coefficient + CI of each continuous variable
-
-# palette
-pal_star <- pnw_palette("Starfish", 5)
-
+# Figures --------
 # Maybe some help here?
 # https://www.metafor-project.org/doku.php/tips:meta_regression_with_log_rr
 
-# this is the final model i swear to god please let this be the final model
-model_full_back <- rma.mv(yi = yi,
-                                V = vi,
-                                slab = author,
-                                data = meta_smolish,
-                                method = "REML",
-                                mods = ~ background_nut_stand + natural + pp_group,
-                                random = ~ 1 | paper_num/indiv, 
-                                test = "t")
+# Define a palette
+pal_star <- pnw_palette("Starfish", 5)
+pal_sm <- pnw_palette("Starfish", 3)
 
-summary(model_full_back)
-
-# pred <- as.data.frame(predict(model_full_back_added, newmods=c(1,0), transf=exp, digits=2))
-# coef <- coef(summary(model_full_back_added))
-
-# Plot PP taxa effect size-------
-# Graph primary producer
-# How many papers in each bin?
-pp_n <- meta_smolish %>%
-  group_by(pp_group) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:4)
-
-papers <- meta_smolish %>%
-  group_by(paper_num) %>%
-  summarise()
-
+# Calculations for plot effect sizes -------
+# Background nutrients
 # Pull coefficient estimates so I can graph them
-intercept_pp <- coef(summary(model_full_back))[1,1] # extract the intercept
+back_nut_effect_sum <- coef(summary(model_full_back)) %>%
+  slice(-(3:9)) %>%
+  slice(-1)%>%
+  rownames_to_column()%>%
+  mutate(dummy = 1, effect = estimate)
 
-# Now pull the rest of the coefficients, add a column for pp, and adjust the estimates to reflect the estimated effect sizes
+# Experimental design
+nat_n <- meta_data %>%
+  group_by(nat_bin) %>%
+  summarise(n = n()) %>% # How many papers in each bin?
+  mutate(dummy = 1:5)
 
-pp_effect_sum <- coef(summary(model_full_back)) %>%
-  slice(-(2:6)) %>%
-  mutate(pp_group = factor(c("Algae", "Coral", "Phytoplankton", "Plants")), 
-         effect = ifelse(pp_group != "Algae", estimate + intercept_pp,
-                         intercept_pp), # add intercept to the estimated coefficient
-         ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
-         ci.up_adjust = effect + (1.96*se)) %>% 
-  left_join(pp_n, by = "pp_group")
-
-# GRAPH THIS?
-pp_labs <- c("Algae", "Coral", "Phytoplankton", "Plants")
-
-pp_n_labs <- c("n = 25", "n = 47", "n = 53", "n = 47") # based on the sample sizes in the df
-
-# Plot effect sizes
-# Should I move the dashed line to intersect the algae mean bc that's what the p-values are indicating (whether the CI crosses the algae mean)
-ggplot(pp_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb_adjust, xmax = ci.up_adjust, colour = pp_group)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept = 0, color="black", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size", y = " ") +
-  scale_y_continuous(breaks = 1:length(pp_labs),
-                     labels = pp_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(pp_n_labs),
-                                         labels = pp_n_labs)) +
-  scale_colour_manual(values = rev(pal_star)) +
-  theme_white()+ 
-  theme(legend.position = "none")
-
-# ggsave("Output/Pub_figs/pp_effect.png", device = "png",
-#      height = 9, width = 16, dpi = 400)
-
-
-# Plot openness effect size -----
-# How many papers in each bin?
-nat_n <- meta_smolish %>%
-  group_by(natural) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:5,
-         nat_bin = factor(c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm"),
-                          levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")))
-
-# Pull coefficient estimates so I can graph them
+# Just the intercept to adjust other estimates
 intercept_nat <- coef(summary(model_full_back))[1,1] # extract the intercept
 
 # When you add intercept to the other estimates, the p-value asks whether the CI’s intercept the intercept, not whether they intercept 0
@@ -443,132 +349,129 @@ nat_effect_sum <- coef(summary(model_full_back)) %>%
          ci.up_adjust = effect + (1.96*se)) %>% 
   left_join(nat_n, by = "nat_bin")
 
-# GRAPH THIS?
-nat_labs <- c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")
 
+# Primary producer group
+pp_n <- meta_data %>%
+  group_by(pp_group) %>%
+  summarise(n = n()) %>% # How many papers in each bin?
+  mutate(dummy = 1:4)
+
+# Just the intercept to adjust other estimates
+intercept_pp <- coef(summary(model_full_back))[1,1] # extract the intercept
+
+# Pull rest of the coefficients, add a column for pp, and adjust the estimates to reflect the estimated effect sizes
+pp_effect_sum <- coef(summary(model_full_back)) %>%
+  slice(-(2:6)) %>%
+  mutate(pp_group = factor(c("Algae", "Coral", "Phytoplankton", "Plants")), 
+         effect = ifelse(pp_group != "Algae", estimate + intercept_pp,
+                         intercept_pp), # add intercept to the estimated coefficient
+         ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
+         ci.up_adjust = effect + (1.96*se)) %>% 
+  left_join(pp_n, by = "pp_group")
+
+# Labels
+cont_labs <- c("Background nutrients", "Absolute latitude", "Temperature")
+names(cont_labs) <- c("background_nut_stand", "lat_stand", "temp_stand")
+back_n_labs <- c("n = 172")
+
+nat_labs <- c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")
 nat_n_labs <- c("n = 74", "n = 14", "n = 21", "n = 9", "n = 54")
 
-ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb_adjust, xmax = ci.up_adjust, colour = nat_bin)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept = 0, color="black", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size", y = " ") +
-  scale_y_continuous(breaks = 1:length(nat_labs),
-                     labels = nat_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(nat_n_labs),
-                                         labels = nat_n_labs)) +
-  scale_colour_manual(values = rev(pal_star)) +
-  theme_white()+ 
-  theme(legend.position = "none")
+pp_labs <- c("Algae", "Coral", "Phytoplankton", "Plants")
+pp_n_labs <- c("n = 25", "n = 47", "n = 53", "n = 47")
 
-#ggsave("Output/Pub_figs/nat_effect.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
+# plot each moderator using the function I created (plot_themes)
+back_nut_plot <- effect_plot(back_nut_effect_sum, ci.lb, ci.ub, rowname, pal_sm[3], cont_labs, back_n_labs) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank())
 
+nat_plot <- effect_plot(nat_effect_sum, ci.lb_adjust,ci.up_adjust, nat_bin, rev(pal_star), nat_labs, nat_n_labs) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank()) 
 
-# Plot lat, temp, back_nut effect sizes -----
+pp_plot <- effect_plot(pp_effect_sum, ci.lb_adjust, ci.up_adjust, pp_group, rev(pal_star), pp_labs, pp_n_labs) +
+  xlab("Effect Size")
 
-# Maybe make a linear plot of the predicted effect + CI as background nutrients increases?
-# Could add raw data as dots?
+# Effect size plot ------
+back_nut_plot + nat_plot + pp_plot + 
+  plot_layout(ncol = 1, heights = unit(c(1, 4, 5), c("cm", "null"))) + plot_annotation(tag_levels =  "A")
 
-# Pull coefficient estimates so I can graph them
+#ggsave("Output/Pub_figs/full_back_nut_mod.png", device = "png",
+#       height = 9, width = 16, dpi = 400)
+
+# Graph the other models!
+# Lat effect size
 lat_effect_sum <- coef(summary(model_full_lat)) %>%
   slice(-(3:9)) %>%
   slice(-1) %>%
-  rownames_to_column() 
+  rownames_to_column() %>%
+  mutate(dummy = 1, effect = estimate)
 
+
+# Temperature effect size
 temp_effect_sum <- coef(summary(model_full_temp)) %>%
   slice(-(3:9)) %>%
   slice(-1) %>%
   rownames_to_column() %>%
-  rbind(lat_effect_sum)
+  mutate(dummy = 1, effect = estimate)
 
-cont_effect_sum <- coef(summary(model_full_back)) %>%
-  slice(-(3:9)) %>%
-  slice(-1)%>%
-  rownames_to_column() %>%
-  rbind(temp_effect_sum) %>%
-  mutate(dummy = 1)
+# Consumers vs pp vs lat
+pal <- pnw_palette("Bay", 6)
+pal2 <- pnw_palette("Bay", 4)
 
+meta_data %>% 
+  mutate(pp_taxa = factor(pp_taxa, levels = rev(c("Co", "En", "P", "CA", "FA", "S", "O")))) %>%
+  ggplot(aes(c_group, pp_taxa, colour = climate, fill = climate, pch = nat_bin)) +
+  geom_jitter(size = 6, alpha = 0.3, width = 0.25, height = 0.25) +
+  theme_white() +
+  labs(x = "Consumer taxa", y = "Primary producer taxa", colour = "Climate",
+       pch = "Experiment", fill = "Climate") +
+  theme(axis.text.x = element_text(angle = 30)) +
+  scale_y_discrete(labels = c("Mangrove", "Seagrass", "Fleshy Algae", "Calcareous algae", "Phytoplankton", "Endosymbiont", "Coral")) +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 18)) +
+  scale_colour_manual(values = rev(pal2)) +
+  scale_fill_manual(values = rev(pal2)) +
+  scale_shape_manual(values = c(21, 22, 23, 24, 25))
 
-# GRAPH THIS?
-pal_sm <- pnw_palette("Starfish", 3)
-cont_labs <- c("Background nutrients", "Absolute latitude", "Temperature")
-names(cont_labs) <- c("background_nut_stand", "lat_stand", "temp_stand")
+#ggsave("Output/Pub_figs/taxa_region.png", device = "png",
+#       height = 9, width = 16, dpi = 400)
 
-ggplot(cont_effect_sum, aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="black", linetype="dashed") +
-  labs(x = "Standardized effect size", y = " ")  +
-  theme_white()+ 
-  theme(legend.position = "none") +
-  scale_y_discrete(labels = cont_labs) +
-  scale_colour_manual(values = rev(pal_sm)) +
-  facet_wrap(~ rowname, nrow = 3, labeller = labeller(rowname = cont_labs))
+# Tables ------
 
+# Let's make a table of the different pp responses! -----
+# OK SO what I think I want is twofold
+# I want to present a table of the metrics I got means of to estimate productivity
+# That will be something like growth (change/time), biomass, percent cover, density, etc
+# AND THEN I probably want to report what sorts of things people were measuring the growth rates of!
+# I went through and did a bunch of post - pre calculations for studies where they gave me measurements over timepoints, this counts as growth
 
-# ggsave("Output/Pub_figs/cont_effects.png", device = "png",
-#      height = 9, width = 16, dpi = 400)
+metrics <- meta_data %>%
+  mutate(response = case_when(response == "mass" ~ "biomass",
+                              TRUE ~ as.character(response))) %>%
+  count(response)
 
+# Look at individual metrics to sea what was measured for each
+measured <- meta_data %>%
+  filter(response == "width") %>%
+  select(response, measured, growth_rate, pp_taxa, comments)
 
-# Try plotting the three continuous variables another way
+# Which metrics were used to measure growth rate?
+growth_metrics <- meta_data %>%
+  filter(growth_rate == "Y") %>%
+  count()
 
-back_nut_plot <- cont_effect_sum %>%
-  filter(rowname == "background_nut_stand") %>%
-  ggplot(aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="black", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Standardized effect size", y = " ")  +
-  theme_white()+ 
-  theme(legend.position = "none") +
-  scale_y_discrete(labels = cont_labs) +
-  scale_colour_manual(values = pal_sm[3]) +  
-  ggtitle('Background nutrients')
+# What metrics were used when growth wasn't measured
+other_metrics <- meta_data %>%
+  filter(growth_rate == "N") %>%
+  count(response)
 
-# now just lat 
-lat_plot <- cont_effect_sum %>%
-  filter(rowname == "lat_stand") %>%
-  ggplot(aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="black", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Standardized effect size", y = " ")  +
-  theme_white()+ 
-  theme(legend.position = "none") +
-  scale_y_discrete(labels = cont_labs) +
-  scale_colour_manual(values = pal_sm[2]) +  
-  ggtitle('Absolute latitude')
+# Which species were used? -----
+pp_used <- meta_data %>%
+  count(pp_group, pp_family, pp_genus, pp_species)
 
-# now just temp 
-temp_plot <- cont_effect_sum %>%
-  filter(rowname == "temp_stand") %>%
-  ggplot(aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="black", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Standardized effect size", y = " ")  +
-  theme_white()+ 
-  theme(legend.position = "none") +
-  scale_y_discrete(labels = cont_labs) +
-  scale_colour_manual(values = pal_sm[1]) +  
-  ggtitle('Temperature')
-
-# throw all three together
-back_nut_plot + lat_plot + temp_plot +
-  plot_layout(ncol = 1) +
-  plot_annotation(tag_levels = "a") +
-  theme(plot.margin = margin(r = 0, l = 0)) & 
-  theme(plot.tag.position = c(0.1, 0.9),
-        plot.tag = element_text(size = 16, hjust = 0, vjust = 0))
-
-# This looks SO MUCH WORSE than the facet wrapped one! YIKES
-
+c_used <- meta_data %>%
+  count(c_group, c_family, c_genus, c_species)
 
 # Independence and Bias -------
 
@@ -580,7 +483,7 @@ funnel.rma(model_null)
 
 # A bit of a right skew
 
-fsn(yi = yi, vi = vi, data = meta_smolish, type="Rosenthal") #file drawer analysis (missing studies have an effect size = 0)
+fsn(yi = yi, vi = vi, data = meta_data, type="Rosenthal") #file drawer analysis (missing studies have an effect size = 0)
 # Fail-safe N: 42,894
 # That seems like quite a large number?????
 
@@ -597,7 +500,7 @@ fsn(yi = yi, vi = vi, data = meta_smolish, type="Rosenthal") #file drawer analys
 
 # Do this manually instead
 # make a df where each row is a paper, and num_obs is the number of observations that paper contributed
-max_obs <- meta_smolish %>%
+max_obs <- meta_data %>%
   group_by(paper_num) %>%  
   summarize(n_obs = n_distinct(obs_num))
 
@@ -610,14 +513,14 @@ sum(max_obs$n_obs) # 170
 # Ok so let's remove those papers one at a time and rerun the stats! let's just use the one model bc fuck that
 
 # # 17 and #23 and #29 are the three I need to check
-meta_smolish_drop <- meta_smolish %>%
+meta_data_drop <- meta_data %>%
   filter(paper_num != 17) 
 
 # Look at the full model
 model_all_drop <- rma.mv(yi = yi,
                     V = vi,
                     slab = author,
-                    data = meta_smolish_drop,
+                    data = meta_data_drop,
                     method = "REML",
                     mods = ~ lat_stand + background_nut_stand  + temp_stand + natural + pp_group + lat_stand:background_nut_stand +  temp_stand:background_nut_stand,
                     random = ~ 1 | paper_num/indiv, 
@@ -652,7 +555,7 @@ summary(model_all_drop)
 model_full_lat_drop <- rma.mv(yi = yi,
                                V = vi,
                                slab = author,
-                               data = meta_smolish_drop,
+                               data = meta_data_drop,
                                method = "REML",
                                mods = ~ lat_stand  + natural + pp_group,
                                random = ~ 1 | paper_num/indiv, 
@@ -686,7 +589,7 @@ summary(model_full_lat_drop)
 model_full_back_drop <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
-                          data = meta_smolish_drop,
+                          data = meta_data_drop,
                           method = "REML",
                           mods = ~ background_nut_stand  + natural + pp_group,
                           random = ~ 1 | paper_num/indiv, 
@@ -721,7 +624,7 @@ summary(model_full_back_drop)
 model_full_temp_drop <- rma.mv(yi = yi,
                           V = vi,
                           slab = author,
-                          data = meta_smolish_drop,
+                          data = meta_data_drop,
                           method = "REML",
                           mods = ~ temp_stand + natural + pp_group,
                           random = ~ 1 | paper_num/indiv, 
@@ -751,1985 +654,25 @@ summary(model_full_temp_drop)
 # Dropping #29 doesn't change anything
 
 # Summary statistics! -----
-
 # what percentage of studies fell into each category?
-
-# PP first
-pp_n2 <- pp_n %>%
-  mutate(percent = n/sum(n))
-
 # Experimental design
 nat_n2 <- nat_n %>%
   mutate(percent = n/sum(n),
          delta = 0.2 - percent)
 
-# Abs lat
-lat_n <- meta_smolish %>%
-  distinct(paper_num, .keep_all = TRUE) %>%
-  count(climate2)%>%
+# PP group
+pp_n2 <- pp_n %>%
   mutate(percent = n/sum(n))
-  
-meta_smolish %>%
+
+# Abs lat
+lat_n <- meta_data %>%
+  distinct(paper_num, .keep_all = TRUE) %>%
+  count(climate)%>%
+  mutate(percent = n/sum(n))
+
+#plot distribution of latitude
+meta_data %>%
   distinct(paper_num, .keep_all = TRUE) %>%
   mutate(dummy = 1) %>%
   ggplot(aes(abs_lat, dummy)) +
   geom_point()
-
-# Figures ------
-# Look at consumers vs pp vs region
-# combine jellies and hydroids!
-pal <- pnw_palette("Bay", 6)
-pal2 <- pnw_palette("Bay", 4)
-
-meta_jelly <- meta_smolish %>%
-  mutate(c_taxa_new = as.factor(case_when(c_taxa == "SI" ~ "Cn",
-                            c_taxa == "MI" ~ "Cn", 
-                            TRUE ~ as.character(c_taxa))),
-        c_taxa_new = factor(c_taxa_new, levels = c("Bi", "F", "E", "G", "B", "SP", "Cn")),
-        pp_taxa = factor(pp_taxa, levels = rev(c("Co", "En", "P", "CA", "FA", "S", "O"))),
-        nat_lab = case_when(natural == 1 ~ "Field: unstocked",
-                            natural == 2 ~ "Field: PP stocked",
-                            natural == 3 ~ "Field: animals stocked",
-                            natural == 4 ~ "Field: both stocked",
-                            natural == 5 ~ "Mesocosm"))
-
-nat_labs <- c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")
-
-#
-ggplot(meta_jelly, aes(c_taxa_new, pp_taxa, colour = climate2, fill = climate2, pch = nat_lab)) +
-  geom_jitter(size = 6, alpha = 0.3, width = 0.25, height = 0.25) +
-  theme_white() +
-  labs(x = "Consumer taxa", y = "Primary producer taxa", colour = "Climate",
-       pch = "Experiment", fill = "Climate") +
-  scale_x_discrete(labels = c("Birds", "Fish", "Echinoderms", "Gastropods", "Bivalves", "Sponges", "Cnidaria")) +
-  theme(axis.text.x = element_text(angle = 30)) +
-  scale_y_discrete(labels = c("Mangrove", "Seagrass", "Fleshy Algae", "Calcareous algae", "Phytoplankton", "Endosymbiont", "Coral")) +
-  theme(axis.text = element_text(size = 16),
-        axis.title = element_text(size = 18)) +
-  scale_colour_manual(values = rev(pal2)) +
-  scale_fill_manual(values = rev(pal2)) +
-  scale_shape_manual(values = c(21, 22, 23, 24, 25))
-
-#ggsave("Output/Pub_figs/taxa_region.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
-  
-
-# Graph background nutrients ---- 
-nut_predict <- as.data.frame(predict(model_full_back,
-                                     addx=TRUE)) %>%
-  tibble::rownames_to_column("author") %>%
-  rename(background_nut_stand = X.background_nut_stand) 
-
-# set seed because otherwise I'll get different colours each time
-set.seed(1235)
-
-# plot predicted values as line, jitter observed effect sizes
-ggplot() +
-  geom_line(data = nut_predict, aes(background_nut_stand, pred),  size = 1.5) +
-  geom_jitter(data = meta_smolish, aes(background_nut_stand, yi, colour = paper_num)) +
-  geom_ribbon(data = nut_predict, aes(background_nut_stand, pred, ymin = ci.lb, ymax = ci.ub), fill = "grey3", alpha = .1) +
-  labs(x = "Background nutrients (umol/L)", y = "Effect Size", colour = "Climate Zone") +
-  geom_hline(yintercept=0, color="black", linetype="dashed") +
-  theme_white() +
-  theme(legend.position = "none")
-# OK this looks fucked up bc the categorical variables also impact the predictions
-
-
-# Can I try to make effect size predictions across "standardized" categorical variables?
-# AKA Can I ask what we predict the effect of pee is on Algae in natural experiments across a broad range of background nutrient values?
-
-# Try to make new DF to generate predictions from?
-max_nut_stand <- max(meta_smolish$background_nut_stand) # 2.36554
-min_nut_stand <- min(meta_smolish$background_nut_stand) # 2.36554
-
-nut_values <- data.frame(
-  back_nut_stand = c(seq(from = min_nut_stand, to = max_nut_stand, length.out = 100)),
-  natural2 = c(rep(0, each = 100)),
-  natural3 = c(rep(0, each = 100)),
-  natural4 = c(rep(0, each = 100)),
-  natural5 = c(rep(0, each = 100)),
-  pp_groupPhytoplankton = c(rep(0, each = 100)),
-  pp_groupPlants = c(rep(0, each = 100)),
-  pp_groupCoral = c(rep(0, each = 100))) %>%
-  as.matrix()
-
-# use these generated values to plot background nutrients effect at algae and nat 1
-nut_predict2 <- as.data.frame(predict(object = model_full_back,
-                                          newmods = nut_values)) %>%
-  cbind(nut_values) 
-
-# plot predicted values as line, jitter observed effect sizes
-ggplot() +
-  geom_line(data = nut_predict2, aes(back_nut_stand, pred),  size = 1.5) +
-  geom_jitter(data = meta_smolish, 
-              aes(background_nut_stand, yi, colour = paper_num, size = 1.5)) +
-  geom_ribbon(data = nut_predict2, aes(back_nut_stand, pred, ymin = ci.lb, ymax = ci.ub), fill = "grey3", alpha = .1) +
-  labs(x = "Background nutrients (umol/L)", y = "Effect Size", colour = "Climate Zone") +
-  geom_hline(yintercept = 0, color = "black", linetype = "dashed", size = 1.5) +
-  theme_white() +
-  theme(legend.position = "none")
-# OK this produces a figure, which is probably basically just the slope and intercept of hte background nutrients model. 
-
-#ggsave("Output/Pub_figs/background_nut_effect.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
-
-
-# Let's make a table of the different pp responses! -----
-
-# I have a sort of messy response column
-# Eg. could lump things together a bit more
-
-# Percent changes
-# total area = percent change of total area
-# shoot change = proportional change in shoot density %
-# skeletal extension (percent) = Skeletal extension rates, as a percentage of total linear extension per day
-
-# gross production (O2 mol/L/h)
-# net photosynthesis (umol O2/g/h)
-# productivity was actually growth (per day)
-
-# OK SO what I think I want is twofold
-# I want to present a table of the metrics I got means of to estimate productivity
-# That will be something like growth (change/time), biomass, percent cover, density, etc
-# AND THEN I probably want to report what sorts of things people were measuring the growth rates of!
-# I went through and did a bunch of post - pre calculations for studies where they gave me measurements over timepoints. but I didn't divide by time so I don't think these are actually growth rates
-
-
-growth_metric <- meta_smolish %>%
-  mutate(response_lump = 
-  case_when(response == "growth (linear extension in cm.y_1)" |
-              response == "productivity" ~ "growth", # seagrass/day
-            paper_num == 2 ~ "biomass (relative units)",
-            response == "belowground biomass" |
-              response == "aboveground biomass" |
-              response == "blade biomass"  ~ "biomass",
-            response == "gross production" |
-              response == "net photosynthesis" |
-              response == "production" ~ "photosynthesis",
-            response == "percent cover. Just ambient" ~ "percent cover",
-            response == "tissue dry weight" ~ "dry weight",
-            response == "blade length" | 
-              response == "shoot length"| 
-              response == "leaf length" | 
-              response == "shoot size" ~ "leaf length",
-            response == "protein" ~ "tissue protein",
-            TRUE ~ as.character(response))) %>%
-  count(response_lump)
-
-# Look at individual responses --------
-response <- meta_smolish %>%
-  filter(response == "shoot size") %>%
-  select(paper_num, title, source, pp_species_family_comm, pp_family, pp_taxa, pp_phyla, response, growth_rate, comments)
-
-# CODE GRAVEYARD ---------
-
-# Primary Producer group justification-----
-
-# Let's made a simple model with just primary producer group as a mod
-# Groups are Algae (FA + CA), Coral (En + Co + anemone), Phytoplankton (P), and Plants (S + mangrove)
-model_pp <- rma.mv(yi = yi,
-                   V = vi,
-                   slab = author,
-                   data = meta_smolish,
-                   method = "REML",
-                   mods = ~ pp_group ,
-                   random = ~ 1 | paper_num/indiv,
-                   test = "t")
-
-summary(model_pp) 
-# meta_final --> p-val = 0.0278
-# meta_umolL --> p-val = 0.0173
-
-# What if we split the pp up more?
-# Groups are Coral, Crustose algae, Endosymbionts, Fleshy algae, Phytoplankton, Seagrass,and Trees  
-model_ppz <- rma.mv(yi = yi,
-                    V = vi,
-                    slab = author,
-                    data = meta_smolish,
-                    method = "REML",
-                    mods = ~ pp_groupz ,
-                    random = ~ 1 | paper_num/indiv,
-                    test = "t")
-
-summary(model_ppz) 
-
-AIC(model_pp, model_ppz) # They're exactly the same AIC. Splitting them doesn't help. The test for moderators is significant in the model with fewer broader groups
-
-# Algae show larger effects vs the rest, what if we just look at them?
-# And phytoplankton are the best distributed, what if we just look at them?
-algae <- meta_final %>%
-  filter(pp_group == "Algae")
-# I just looked at the phytoplankton and the algae
-# Both had the same trend
-
-# Does algae effect vary by lat
-p_lat <- rma.mv(yi = yi,
-                V = vi,
-                slab = author,
-                data = algae,
-                method = "REML",
-                mods = ~ lat_stand,
-                random = ~ 1 | paper_num/indiv,
-                test = "t")
-
-summary(p_lat) # NO, p-val = 0.2787
-
-# Does algae effect vary by back nut
-p_back <- rma.mv(yi = yi,
-                 V = vi,
-                 slab = author,
-                 data = algae,
-                 method = "REML",
-                 mods = ~ background_nut_stand,
-                 random = ~ 1 | paper_num/indiv,
-                 test = "t")
-
-summary(p_back) # Sort of, coeff = 0.4783 and p-val = 0.0577
-# Slightly larger effect of pee on algae with higher levels of background nutrients
-
-# Does algae effect vary by temperature
-p_temp <- rma.mv(yi = yi,
-                 V = vi,
-                 slab = author,
-                 data = algae,
-                 method = "REML",
-                 mods = ~ temp_stand,
-                 random = ~ 1 | paper_num/indiv,
-                 test = "t")
-
-summary(p_temp) # NO, p-val = 0.1376
-
-
-# Are corals and endosymbionts different? NO
-corals <- meta_final %>% 
-  filter(pp_taxa == "Co" |pp_taxa == "En")
-
-model_coral <- rma.mv(yi = yi,
-                      V = vi,
-                      slab = author,
-                      data = corals,
-                      method = "REML",
-                      mods = ~ pp_taxa,
-                      random = ~ 1 | paper_num/indiv, 
-                      test = "t")
-
-summary(model_coral)
-# p-value is 0.8314 so no, there's no diff between corals and endosymbionts
-
-# Graph primary producer
-# How many papers in each bin?
-pp_n <- meta_final %>%
-  group_by(pp_group) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:4)
-
-# Pull coefficient estimates so I can graph them
-intercept_pp <- coef(summary(model_pp))[1,1] # extract the intercept
-
-# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
-
-pp_effect_sum <- coef(summary(model_pp)) %>%
-  mutate(pp_group = factor(c("Algae", "Coral", "Phytoplankton", "Plants")), 
-         effect = ifelse(pp_group != "Algae", estimate + intercept_pp,
-                         intercept_pp),
-         ci.lb = ifelse(pp_group != "Algae", ci.lb + intercept_pp,
-                        ci.lb),
-         ci.ub = ifelse(pp_group != "Algae", ci.ub + intercept_pp,
-                        ci.ub)) %>% # add intercept to other coefficients
-  left_join(pp_n, by = "pp_group")
-
-# GRAPH THIS?
-pp_labs <- c("Algae", "Coral", "Phytoplankton", "Plants")
-
-pp_n_labs <- c("n = 26", "n = 47", "n = 53", "n = 47")
-
-ggplot(pp_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = pp_group)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept = intercept_pp, color="white", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size", y = " ") +
-  scale_y_continuous(breaks = 1:length(pp_labs),
-                     labels = pp_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(pp_n_labs),
-                                         labels = pp_n_labs)) +
-  scale_colour_manual(values = rev(pal_star)) +
-  theme_black()+ 
-  theme(legend.position = "none")
-
-#ggsave("Output/Figures/effects_pp.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
-
-
-
-# Exploration graphing --------
-# Make palette
-pal <- pnw_palette("Bay", 6)
-pal2 <- pnw_palette("Bay", 4)
-
-climate_labs <- c("South Temperate", "South Subtropics", "Tropics", "North Subtropics", "North Temperate", "North Polar")
-
-#using meta_reduced so each paper is only counted once
-ggplot(meta_all_papers, aes(y = climate_zone, fill = climate_zone)) +
-  geom_bar(stat="count") +
-  scale_fill_manual(values = rev(pal)) +
-  scale_y_discrete(labels = climate_labs) +
-  labs( y = "Climate Zone", x = "Number of Papers") + 
-  theme_black() + theme(legend.position = "none")
-
-# Using climate2
-meta_smolish %>%
-  distinct(paper_num, .keep_all = TRUE) %>%
-ggplot(aes(y = climate2, fill = climate2)) +
-  geom_bar(stat="count") +
-  scale_fill_manual(values = rev(pal2)) +
-  labs( y = "Climate Zone", x = "Number of Papers") + 
-  theme_black() + theme(legend.position = "none")
-
-
-#ggsave("Output/Figures/climate_zone_bar.png", device = "png",
-#      height = 9, width = 16, dpi = 400)
-
-
-# GRAPHING CHL A
-ggplot(meta_final, aes(y = lat_dec, x = chla_est, colour = climate_zone)) +
-  geom_jitter()+
-  scale_colour_manual(values = rev(pal), labels = climate_labs) +
-  labs(y = "Latitude", x = "Chlorophyll a (mg/m^2)") + 
-  theme_black() + 
-  theme(legend.position = "none") +
-  ylim(c(-73, 73))
-
-#ggsave("Output/Figures/chla_lat.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
-
-ggplot(meta_final, aes(x = abs_lat, y = chla_est, colour = climate_zone)) +
-  geom_jitter()+
-  scale_colour_manual(values = rev(pal), labels = climate_labs) +
-  labs(x = "Latitude", y = "Chlorophyll a (mg/m^2)") + 
-  theme_black() + 
-  theme(legend.position = "none") 
-
-
-# take a look at the distribution of primary producers across latitudes
-
-# this df filters out any rows that can't be used for added_N
-meta_smol <- meta_final %>%
-  filter(prov_units == "umol/L") %>%
-  filter(added_N < 10) %>% # Filter out the super high ammonium estimates that are dragging the line down?
-  drop_na(background_nut_stand) %>%
-  drop_na(temp_stand) %>%
-  drop_na(added_N_stand) 
-
-# Are pp and c taxa well spread across latitudes?
-ggplot(meta_smol, aes(pp_group, climate2, colour = climate2)) +
-  geom_jitter(size = 4) +
-  theme_black() +
-  theme(legend.position = "none") +
-  labs(x = "Primary Producer", y = "Climate Zone") +
-  theme(axis.text.x = element_text(angle = 90))
-
-# Algae not in tropics, and Coral not in Temperates. Phytoplankton and Plants are spread
-
-# take a look at the distribution of consumers across latitudes
-ggplot(meta_final, aes(c_taxa, climate2, colour = climate2)) +
-  geom_jitter(size = 4) +
-  theme_black() +
-  theme(legend.position = "none") +
-  labs(x = "Consumer", y = "Climate Zone") +
-  scale_x_discrete(labels = c("Birds", "Fish", "Echinoderms", "Gastropods", "Jellies", "Bivalves", "Sponges", "Hydroid")) +
-  theme(axis.text.x = element_text(angle = 30))
-
-
-# look at activity level
-ggplot(meta_final, aes(c_activity, climate2, colour = climate2)) +
-  geom_jitter(size = 4) +
-  theme_black() +
-  theme(legend.position = "none") +
-  labs(x = "Consumer Activity Level", y = "Climate Zone")
-
-
-# a lot of bivalve papers coming out of temperate regions
-
-# Looking at background nutrients and temperature and provisioning
-
-ggplot(meta_final, aes(abs_lat, background_nut)) +
-  geom_jitter(aes(colour = climate2)) +
-  geom_smooth(method = lm) +
-  scale_colour_manual(values = rev(pal2)) +
-  theme_black() +
-  labs(x = "Absolute Latitude", y = "Background nutrients (umol/L)") +
-  theme(legend.position = "none")
-
-#ggsave("Output/Figures/abs_lat_nutrients.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
-
-
-# this df filters out any rows that can't be used for added_N
-meta_smol <- meta_final %>%
-  filter(prov_units == "umol/L") %>%
-  filter(added_N < 10) %>% # Filter out the super high ammonium estimates that are dragging the line down?
-  drop_na(background_nut_stand) %>%
-  drop_na(temp_stand) %>%
-  drop_na(added_N_stand) 
-
-# Three models with added_N -------
-# Lat
-model_full_lat_added <- rma.mv(yi = yi,
-                               V = vi,
-                               slab = author,
-                               data = meta_smol,
-                               method = "REML",
-                               mods = ~ lat_stand  + added_N + natural + pp_group,
-                               random = ~ 1 | paper_num/indiv, 
-                               test = "t")
-
-summary(model_full_lat_added)
-
-# Full model with background_nutrients
-model_full_back_added <- rma.mv(yi = yi,
-                                V = vi,
-                                slab = author,
-                                data = meta_smol,
-                                method = "REML",
-                                mods = ~ background_nut_stand + added_N + natural + pp_group,
-                                random = ~ 1 | paper_num/indiv, 
-                                test = "t")
-
-summary(model_full_back_added)
-
-
-# Full model with temperature
-model_full_temp_added <- rma.mv(yi = yi,
-                                V = vi,
-                                slab = author,
-                                data = meta_smol,
-                                method = "REML",
-                                mods = ~ temp_stand + added_N + natural + pp_group,
-                                random = ~ 1 | paper_num/indiv, 
-                                test = "t")
-
-summary(model_full_temp_added)
-
-# 
-AIC_tab <- AIC(model_full_lat, model_full_back, model_full_temp, model_null, model_cat) %>%
-  rownames_to_column() %>%
-  mutate(best = min(AIC),
-         delta = AIC - best)
-
-
-# Add chla data to orig meta dataframe  -------
-# this file was written in the Chla_extraction.R code file
-chla_all_values <- read_csv("Output/Data/all_extracted_chla_updated.csv") 
-
-meta_chl <- meta %>%
-  left_join(chla_all_values, by = "indiv")
-
-# What's the max and min chla value?
-max <- max(meta_chl$chla_est) # 26.73629
-min<- min(meta_chl$chla_est) # 0.05139377
-
-# How big should each bin be?
-bin_size <- max/5
-upper_bin1 <- bin_size
-upper_bin2 <- bin_size*2
-upper_bin3 <- bin_size*3
-upper_bin4 <- bin_size*4
-upper_bin5 <- bin_size*5
-
-# Smaller bins
-bin_size_small <- max/3
-upper_bin_low <- bin_size_small
-upper_bin_mid <- bin_size_small*2
-upper_bin_high <- bin_size_small*3
-
-
-# use this so that it still works even if the max chla value changes
-
-# add chl a estimates to df
-# add a binned chl a column
-meta_final <- meta_chl %>%
-  mutate(chla_bin = ifelse(chla_est <= upper_bin1, "1",
-                           ifelse(chla_est <= upper_bin2, "2",
-                                  ifelse(chla_est <= upper_bin3, "3", 
-                                         ifelse(chla_est <= upper_bin4, "4", "5")))),
-         chla_log = log(chla_est),
-         chla_bin_num = as.numeric(chla_bin),
-         chla_bin_small = factor(ifelse(chla_est <= upper_bin_low, "Low",
-                                        ifelse(chla_est <= upper_bin_mid, "Medium",
-                                               "High")),
-                                 levels = c("Low", "Medium", "High"))) 
-
-
-# Chlorophyll a multilevel models -----
-# Originally we were using chl a as a proxy for background nutrients. But now I've actually found estimates for background nutrients, and determined that background nutrients and chl a aren't actually that correlated. Which leaves me wondering what chl a is actually a predictor of, knee-jerk would be productivity but we know tropical regions are super productive and have very low chl a
-# So maybe we don't look at chl a anymore........
-
-# Ok there are multiple ways to look at chl a data
-# We could look at the untransformed chl a, log transformed chl a, numeric binned chl a, or binned categorical chl a
-# The only time we see a siginificant effect is when we look at categorical, and that model is probably overfitting the bins with very few samples
-
-# Untransformed chl a estimates as a linear model
-model_chla_est <- rma.mv(yi = yi,
-                         V = vi,
-                         slab = author,
-                         data = meta_final,
-                         method = "REML",
-                         mods = ~ chla_est,
-                         random = ~ 1 | paper_num/indiv,
-                         test = "t")
-
-summary(model_chla_est)
-# p value is 0.5450
-
-# Transformed log chl a data
-# Do this when you know that a predictor wouldn't increase the response forever (non linear)
-model_chla_log <- rma.mv(yi = yi,
-                         V = vi,
-                         slab = author,
-                         data = meta_final,
-                         method = "REML",
-                         mods = ~ chla_log,
-                         random = ~ 1 | paper_num/indiv,
-                         test = "t")
-summary(model_chla_log)
-# p value is 0.9213
-
-# Binned chl a as numeric
-model_chla_paper_numeric <- rma.mv(yi = yi,
-                                   V = vi,
-                                   slab = author,
-                                   data = meta_final,
-                                   method = "REML",
-                                   mods = ~ chla_bin_num,
-                                   random = ~ 1 | paper_num/indiv,
-                                   test = "t")
-summary(model_chla_paper_numeric)
-# p value is 0.5423
-
-# Binned categorical chl a
-model_chla_paper_bin <- rma.mv(yi = yi,
-                               V = vi,
-                               slab = author,
-                               data = meta_final,
-                               method = "REML",
-                               mods = ~ chla_bin,
-                               random = ~ 1 | paper_num/indiv, 
-                               test = "t")
-
-summary(model_chla_paper_bin)
-# p value is 0.0111
-
-
-AIC(model_chla_paper_numeric, model_chla_paper_bin, model_chla_log, model_chla_est)
-# ok so interestingly the bins are the lowest AIC
-# sample sizes are super uneven
-# This is probably why the AIC is lower in the bins
-# Probably overfitting the bins with very few samples
-# Hannah says that as long as I justify what I did i might be ok
-# But she would be sketched out if she read that i binned
-# Hannah suggest going with the continuous chla est
-# That's her gut instinct
-
-
-# Basically Hannah says that the way it's currently coded, the model is just comparing each bin, but doesn't acknowledge that bins 1 and 2 are more similar than 1 and 5
-# Could go the ordinal route, might be conceptually ok but logistically challenging to interpret
-# links for that:
-# https://www.researchgate.net/publication/318745880_Regression_with_Ordered_Predictors_via_Ordinal_Smoothing_Splines
-# https://cran.r-project.org/web/packages/ordPens/ordPens.pdf
-
-# OK I want to use chla_est
-
-# Graph chl a est------
-chla_predict <- as.data.frame(predict(model_chla_est,
-                                      addx=TRUE)) %>%
-  tibble::rownames_to_column("author") %>%
-  rename(chla_est = X.chla_est) 
-
-# set seed because otherwise I'll get different colours each time
-set.seed(1235)
-
-# plot predicted values as line, jitter observed effect sizes
-ggplot() +
-  geom_line(data = chla_predict, aes(chla_est, pred), colour = "white", size = 1.5) +
-  geom_jitter(data = meta_final, aes(chla_est, yi, colour = author)) +
-  geom_ribbon(data = chla_predict, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub), fill = "white", alpha = .1) +
-  theme_classic() +
-  labs(x = expression(paste(Chlorophyll~a~(mg/m^{2}))), y = "Effect Size") +
-  scale_color_manual(values = sample(col_vector, n)) +
-  geom_hline(yintercept=0, color="white", linetype="dashed") +
-  theme_black() +
-  theme(legend.position="none")
-
-
-#ggsave("Output/Figures/chla_est_effect.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
-
-
-# Chl a * latitude interaction multi level model -------
-# this might be sketchy be chl a is sort of correlated with lat??????
-model_multi <- rma.mv(yi = yi,
-                      V = vi,
-                      slab = author,
-                      data = meta_final,
-                      method = "REML",
-                      mods = ~ chla_est * abs_lat,
-                      random = ~ 1 | paper_num/indiv,
-                      test = "t")
-
-summary(model_multi)
-# Ok test of mods is p value = 0.0194
-# chla_est is p value = 0.0039
-# lat is p value = 0.8757
-# and interaction is p value = 0.0027
-
-# check for colinearity
-vif(model_multi) # run this on the model without an interaction
-# value of 1 means they're not correlated with any other variables
-# higher value = greater correlation
-# values of more than 4 or 5 are regarded as moderate - high
-# values of 10+ are very high
-
-# OKKKKKKK so basically there's an interaction between lat and chl a ????
-# what does that mean
-# negative interaction tells us that the two variables have an antagonistic effect – increasing both variables simultaneously results in a smaller effect size than if we added the main effects of each together
-
-# so the further you get from the poles, and the higher the chl a is, the less effect pee has?
-
-# LOG CHLA?
-model_multi_log <- rma.mv(yi = yi,
-                          V = vi,
-                          slab = author,
-                          data = meta_final,
-                          method = "REML",
-                          mods = ~ chla_log * abs_lat,
-                          random = ~ 1 | paper_num/indiv,
-                          test = "t")
-
-summary(model_multi_log)
-
-AIC(model_multi, model_multi_log)
-#OOOOOKAY so the untransformed model is slightly better
-
-# Graph interaction model -------
-
-# make own df of lat values
-mean_lat_chla <- meta_final %>%
-  group_by(climate2) %>%
-  summarise(mean = mean(abs_lat),
-            min_chla = min(chla_est),
-            max_chla = max(chla_est))
-
-# what are the min and max chl a values for each zome
-
-
-lat_values <- data.frame(chla_est = c(seq(from = 0.09748242, to = 1.522176, length.out = 20),
-                                      seq(from = 0.05139377, to = 6.724741, length.out = 20),
-                                      seq(from = 0.85469812, to = 26.736286, length.out = 20),
-                                      seq(from = 0.44598898, to = 0.445989, length.out = 20)),
-                         abs_lat = c(rep(17.42045, times = 20), 
-                                     rep(26.54635, times = 20), 
-                                     rep(48.00235, times = 20), 
-                                     rep(74.21667, times = 20))) %>%
-  mutate(`chla_est:abs_lat` = chla_est*abs_lat) %>%
-  as.matrix()
-
-# change the sequence for chl a to represent the chl a values we actually see at these latitudes (similar notation to how I did latitude with c() instead of rep())
-# and change lat values for each bin to better reflect the avg lat in that bin
-
-# use predict to tell it which values you want predictions for
-lat_chla_predict <- as.data.frame(predict(object = model_multi,
-                                          newmods = lat_values)) %>%
-  cbind(lat_values) %>%
-  mutate(climate = factor(c(rep("Tropics", times = 20), 
-                            rep("Subtropics", times = 20), 
-                            rep("Temperate", times = 20), 
-                            rep("Polar", times = 20)),
-                          levels = c("Tropics", "Subtropics", "Temperate", "Polar")))
-
-# plot predicted values as line, jitter observed effect sizes
-ggplot() +
-  geom_line(data = lat_chla_predict,  aes(chla_est, pred, colour = climate), size = 1.7) +
-  geom_point(data = meta_final, aes(chla_est, yi, colour = climate2), size = 2.5) +
-  geom_ribbon(data = lat_chla_predict, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .2)+
-  labs(x = expression(paste(Chlorophyll~a~(mg/m^{2}))), y = "Effect Size", colour = "Climate", fill = "Climate") +
-  geom_hline(yintercept=0, color="white", linetype="dashed") +
-  theme_black() +
-  xlim(c(0, 21.5)) + ylim(c(-1, 3.2)) +
-  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 37", 
-                                                     "Subtropics n = 64",
-                                                     "Temperate n = 70", 
-                                                     "Polar n = 2")) +
-  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 37", 
-                                                   "Subtropics n = 64",
-                                                   "Temperate n = 70", 
-                                                   "Polar n = 2")) 
-
-#ggsave("Output/Figures/interaction_effects.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
-
-# Just plot tropics
-trop_predict <- lat_chla_predict %>%
-  filter(climate == "Tropics")
-
-trop_meta <- meta_final %>%
-  filter(climate2 == "Tropics")
-
-# plot just tropics
-ggplot() +
-  geom_line(data = trop_predict,  aes(chla_est, pred, colour = climate), size = 1.7) +
-  geom_point(data = trop_meta, aes(chla_est, yi, colour = climate2), size = 2.5) +
-  geom_ribbon(data = trop_predict, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .2) +
-  labs(x = expression(paste(Chlorophyll~a~(mg/m^{2}))), y = "Effect Size", colour = "Climate", fill = "Climate") +
-  geom_hline(yintercept=0, color="white", linetype="dashed") +
-  theme_black() +
-  xlim(c(0, 21.5)) + ylim(c(-1, 3.2))+
-  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 37", 
-                                                     "Subtropics n = 64",
-                                                     "Temperate n = 70", 
-                                                     "Polar n = 2")) +
-  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 37", 
-                                                   "Subtropics n = 64",
-                                                   "Temperate n = 70", 
-                                                   "Polar n = 2")) 
-
-#ggsave("Output/Figures/interaction_effects_trop.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
-
-# plot just tropics and subtropics
-trop_sub_predict <- lat_chla_predict %>%
-  filter(climate %in% c("Tropics", "Subtropics"))
-
-trop_sub_meta <- meta_final %>%
-  filter(climate2 %in% c("Tropics", "Subtropics"))
-
-# which studies have high chl a in subtropics?
-sub_chla <- trop_sub_meta %>%
-  filter(chla_est >5)
-
-# plot just tropics and subtropics
-ggplot() +
-  geom_line(data = trop_sub_predict,  aes(chla_est, pred, colour = climate), size = 1.7) +
-  geom_point(data = trop_sub_meta, aes(chla_est, yi, colour = climate2), size = 2.5) +
-  geom_ribbon(data = trop_sub_predict, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .2) +
-  labs(x = expression(paste(Chlorophyll~a~(mg/m^{2}))), y = "Effect Size", colour = "Climate", fill = "Climate") +
-  geom_hline(yintercept=0, color="white", linetype="dashed") +
-  theme_black() +
-  xlim(c(0, 21.5)) + ylim(c(-1, 3.2)) +
-  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 37", 
-                                                     "Subtropics n = 64",
-                                                     "Temperate n = 70", 
-                                                     "Polar n = 2")) +
-  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 37", 
-                                                   "Subtropics n = 64",
-                                                   "Temperate n = 70", 
-                                                   "Polar n = 2")) 
-
-#ggsave("Output/Figures/interaction_effects_trop_sub.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
-
-# plot tropics, subtropics, and temperate
-trop_sub_temp_predict <- lat_chla_predict %>%
-  filter(climate %in% c("Tropics", "Subtropics", "Temperate"))
-
-trop_sub_temp_meta <- meta_final %>%
-  filter(climate2 %in% c("Tropics", "Subtropics", "Temperate"))
-
-# plot just tropics and subtropics
-ggplot() +
-  geom_line(data = trop_sub_temp_predict,  aes(chla_est, pred, colour = climate), size = 1.7) +
-  geom_point(data = trop_sub_temp_meta, aes(chla_est, yi, colour = climate2), size = 2.5) +
-  geom_ribbon(data = trop_sub_temp_predict, aes(chla_est, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .2) +
-  labs(x = expression(paste(Chlorophyll~a~(mg/m^{2}))), y = "Effect Size", colour = "Climate", fill = "Climate") +
-  geom_hline(yintercept=0, color="white", linetype="dashed") +
-  theme_black() +
-  xlim(c(0, 21.5)) + ylim(c(-1, 3.2)) +
-  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 37", 
-                                                     "Subtropics n = 64",
-                                                     "Temperate n = 70", 
-                                                     "Polar n = 2")) +
-  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 37", 
-                                                   "Subtropics n = 64",
-                                                   "Temperate n = 70", 
-                                                   "Polar n = 2")) 
-
-#ggsave("Output/Figures/interaction_effects_trop_sub_temp.png", 
-#       device = "png",
-#    height = 9, width = 16, dpi = 400)
-
-
-
-
-# Graph log interaction model ------
-# make own df of lat values
-mean_lat_chla_log <- meta_final %>%
-  group_by(climate2) %>%
-  summarise(mean = mean(abs_lat),
-            min_chla_log = min(chla_log),
-            max_chla_log = max(chla_log))
-
-# what are the min and max chl a values for each zone
-lat_values_log <- data.frame(chla_log = c(seq(from = -2.3280832, to = 0.4201407, length.out = 20),
-                                          seq(from = -2.9682384, to = 2.3666108, length.out = 20),
-                                          seq(from = -0.1570069, to = 3.0673489, length.out = 20),
-                                          seq(from = -0.8074610, to = -0.8074610, length.out = 20)),
-                             abs_lat = c(rep(17.45767, times = 20), 
-                                         rep(27.79097, times = 20), 
-                                         rep(47.36229, times = 20), 
-                                         rep(74.21667, times = 20))) %>%
-  mutate(`chla_log:abs_lat` = chla_log*abs_lat) %>%
-  as.matrix()
-
-# change the sequence for chl a to represent the chl a values we actually see at these latitudes (similar notation to how I did latitude with c() instead of rep())
-# and change lat values for each bin to better reflect the avg lat in that bin
-
-# use predict to tell it which values you want predictions for
-lat_chla_predict_log <- as.data.frame(predict(object = model_multi_log,
-                                              newmods = lat_values_log)) %>%
-  cbind(lat_values_log) %>%
-  mutate(climate = factor(c(rep("Tropics", times = 20), 
-                            rep("Subtropics", times = 20), 
-                            rep("Temperate", times = 20), 
-                            rep("Polar", times = 20)),
-                          levels = c("Tropics", "Subtropics", "Temperate", "Polar")))
-
-# plot predicted values as line, jitter observed effect sizes
-ggplot() +
-  geom_line(data = lat_chla_predict_log,  aes(chla_log, pred, colour = climate)) +
-  geom_point(data = meta_final, aes(chla_log, yi, colour = climate2)) +
-  geom_ribbon(data = lat_chla_predict_log, aes(chla_log, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .1) +
-  labs(x = "Log(chl a)", y = "Predicted Effect Size", colour = "Climate", fill = "Climate") +
-  geom_hline(yintercept=0, color="white", linetype="dashed") +
-  theme_black()
-
-
-#ggsave("Output/Figures/interaction_effects_log.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
-
-# Chl a x cat lat interaction model ------
-model_multi2 <- rma.mv(yi = yi,
-                       V = vi,
-                       slab = author,
-                       data = meta_final,
-                       method = "REML",
-                       mods = ~ chla_est * climate2,
-                       random = ~ 1 | paper_num/indiv,
-                       test = "t")
-
-summary(model_multi2)
-
-
-# How many papers in each bin?
-coral_n <- corals %>%
-  group_by(pp_taxa) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:2,
-         pp_taxa = c("Coral", "Endosymbiont") )
-
-# Pull coefficient estimates so I can graph them
-intercept_coral <- coef(summary(model_coral))[1,1] # extract the intercept
-
-# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
-
-# edit bin labels
-coral_effect_sum <- coef(summary(model_coral)) %>%
-  mutate(pp_taxa = factor(c("Coral", "Endosymbiont"),
-                          levels = c("Coral", "Endosymbiont")),
-         effect = ifelse(pp_taxa != "Coral", estimate + intercept_coral,
-                         intercept_coral),
-         ci.lb = ifelse(pp_taxa != "Coral", ci.lb + intercept_coral,
-                        ci.lb),
-         ci.ub = ifelse(pp_taxa != "Coral", ci.ub + intercept_coral,
-                        ci.ub)) %>% # add intercept to other coefficients
-  left_join(coral_n, by = "pp_taxa")
-
-# GRAPH THIS?
-coral_labs <- c("Coral", "Endosymbiont")
-
-coral_n_labs <- c("n = 28", "n = 8")
-
-ggplot(coral_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = pp_taxa)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="white", linetype="dashed", alpha=.5) +
-  theme_classic() +
-  labs(x = "Effect size (ROM)", y = " ") +
-  scale_y_continuous(breaks = 1:length(coral_labs),
-                     labels = coral_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(coral_n_labs),
-                                         labels = coral_n_labs)) +
-  theme_black() +
-  theme(legend.position = "none")
-# Ok so yeah basically the coral and endosymbionts aren't showing different effect sizes, the coral is just a tighter estimate, probably bc it has a larger n
-
-# Multi-level models with single mods or interactions -------
-
-# Null model ------
-
-model_null <- rma.mv(yi = yi,
-                     V = vi,
-                     slab = author,
-                     data = meta_final,
-                     method = "REML",
-                     random = ~ 1 | paper_num/indiv, 
-                     test = "t")
-
-summary(model_null) # <.0001
-
-
-# Latitude mulit level model ----
-
-# We are going to use the absolute value of latitude, because I have no reason to expect North temperate to vary from South temperate
-model_lat <- rma.mv(yi = yi,
-                    V = vi,
-                    slab = author,
-                    data = meta_smolish,
-                    method = "REML",
-                    mods = ~ lat_stand,
-                    random = ~ 1 | paper_num/indiv, 
-                    test = "t")
-
-summary(model_lat)
-# model_lat: coeff = -0.0359, p = 0.5733
-# model_full_lat: coeff = -0.0359, p = 0.8513
-
-# meta_final --> p-val = 0.7132
-# meta_umolL --> p-val = p-val = 0.1782
-
-# Look at Test of Moderators to determine whether there are significant differences between the subgroups
-# p-value is 0.6181 so NO, there is NO difference!
-# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
-
-# Graph lat 
-
-# Use predict() to predict effect size for each abs lat
-# https://wviechtb.github.io/metafor/reference/predict.rma.html
-
-# For random-effects models that were fitted with the rma.mv function, the model may actually include multiple 𝜏2 values (i.e., when the random argument includes an ‘~ inner | outer’ term and struct="HCS", struct="DIAG", struct="HAR", or struct="UN"). In that case, the function will provide prediction intervals for each level of the inner factor (since the prediction intervals differ depending on the 𝜏2 value)
-
-# don't have to worry about tau2.levels and gamma2.levels arguments because I'm not using newmods, I'm just predicting the effects at the lat values from my input data
-
-lat_predict <- as.data.frame(predict(model_lat,
-                                     addx=TRUE)) %>%
-  tibble::rownames_to_column("author") %>%
-  rename(abs_lat = X.abs_lat) 
-
-# pred = predicted value(s).
-# se = corresponding standard error(s).
-#ci.lb = lower bound of the confidence interval(s).
-#ci.ub = upper bound of the confidence interval(s).
-#pi.lb = lower bound of the prediction interval(s) (only for random/mixed-effects models).
-#pi.ub = upper bound of the prediction interval(s) (only for random/mixed-effects models).
-
-# Use ggeffects to graph these predicted values
-# https://strengejacke.github.io/ggeffects/index.html
-# geom line for predicted and geom ribbon for CI intervals
-
-# Create a palette
-# how many unique papers
-n <- length(unique(meta_final$paper_num))
-
-#combine the qualitative colour brewer palettes
-qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
-col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
-
-# set seed because otherwise I'll get different colours each time
-set.seed(1235)
-
-# plot predicted values as line, jitter observed effect sizes
-ggplot() +
-  geom_line(data = lat_predict, aes(abs_lat, pred), colour = "white", size = 1.5) +
-  geom_jitter(data = meta_final, aes(abs_lat, yi, colour = author)) +
-  geom_ribbon(data = lat_predict, aes(abs_lat, pred, ymin = ci.lb, ymax = ci.ub), alpha = .1, fill = "white") +
-  theme_classic() +
-  labs(x = "Absolute latitude", y = "Effect Size") +
-  scale_color_manual(values = sample(col_vector, n)) +
-  geom_hline(yintercept=0, color="white", linetype="dashed") +
-  theme_black() +
-  theme(legend.position="none")
-
-#ggsave("Output/Figures/abs_lat_effect.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
-
-
-# Background nutrients multilevel model-----
-model_back_nutrients <- rma.mv(yi = yi,
-                               V = vi,
-                               slab = author,
-                               data = meta_smolish,
-                               method = "REML",
-                               mods = ~ background_nut,
-                               random = ~ 1 | paper_num/indiv, 
-                               test = "t")
-
-summary(model_back_nutrients)
-#model_back_nutrients: coeff: 0.0090, p = 0.3234
-#model_full_back: coeff: 0.1275, p = 0.0903
-
-# meta_final --> p-value = 0.2242
-# meta_umolL --> p-value = 0.0162
-
-# Graph background nutrients 
-nut_predict <- as.data.frame(predict(model_back_nutrients,
-                                     addx=TRUE)) %>%
-  tibble::rownames_to_column("author") %>%
-  rename(background_nut = X.background_nut) 
-
-# set seed because otherwise I'll get different colours each time
-set.seed(1235)
-
-# plot predicted values as line, jitter observed effect sizes
-ggplot() +
-  geom_line(data = nut_predict, aes(background_nut, pred), colour = "white", size = 1.5) +
-  geom_jitter(data = meta_final, aes(background_nut, yi, colour = climate2)) +
-  geom_ribbon(data = nut_predict, aes(background_nut, pred, ymin = ci.lb, ymax = ci.ub), fill = "white", alpha = .1) +
-  theme_classic() +
-  labs(x = "Background nutrients (umol/L)", y = "Effect Size", colour = "Climate Zone") +
-  geom_hline(yintercept=0, color="white", linetype="dashed") +
-  theme_black() +
-  scale_colour_manual(values = rev(pal2))
-
-#ggsave("Output/Figures/background_nut_effect.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
-
-# Added nitrogen multilevel model ------
-# Only looking at added nitrogen where they measured it in umol/L
-meta_umolL <- meta_final %>%
-  filter(prov_units == "umol/L") %>%
-  filter(added_N < 10) # Filter out the super high ammonium estimates that are dragging the line down?
-
-model_added_N <- rma.mv(yi = yi,
-                        V = vi,
-                        slab = author,
-                        data = meta_umolL,
-                        method = "REML",
-                        mods = ~ added_N,
-                        random = ~ 1 | paper_num/indiv, 
-                        test = "t")
-
-summary(model_added_N)
-# p-val = 0.1853
-
-model_added_nh4 <- rma.mv(yi = yi,
-                          V = vi,
-                          slab = author,
-                          data = meta_umolL,
-                          method = "REML",
-                          mods = ~ added_nh4,
-                          random = ~ 1 | paper_num/indiv, 
-                          test = "t")
-
-summary(model_added_nh4)
-# p-val = 0.5276
-
-# Graph added nitrogen 
-N_predict <- as.data.frame(predict(model_added_N,
-                                   addx=TRUE)) %>%
-  tibble::rownames_to_column("author") %>%
-  rename(added_N = X.added_N) 
-
-# set seed because otherwise I'll get different colours each time
-set.seed(1235)
-
-# plot predicted values as line, jitter observed effect sizes
-ggplot() +
-  geom_line(data = N_predict, aes(added_N, pred), colour = "white", size = 1.5) +
-  geom_jitter(data = meta_umolL, aes(added_N, yi, colour = climate2)) +
-  geom_ribbon(data = N_predict, aes(added_N, pred, ymin = ci.lb, ymax = ci.ub), fill = "white", alpha = .1) +
-  theme_classic() +
-  labs(x = "Added nitrogen (umol/L)", y = "Effect Size", colour = "Climate Zone") +
-  geom_hline(yintercept=0, color="white", linetype="dashed") +
-  theme_black() +
-  scale_colour_manual(values = rev(pal2))
-
-#ggsave("Output/Figures/added_N_effect.png", device = "png",
-# height = 9, width = 16, dpi = 400)
-
-# This shows that for the most part, added N was around 1-10
-# Should I just cut the outliers that were above 10..? It's just that one mussel vs oyster vs salmon vs bass paper, the three high points are three of the four experiments
-meta_big_pee <- meta_umolL %>%
-  filter(added_N > 10)
-
-# Temperature multilevel model-----
-# Temperature and abs_lat are correlated 5.0679
-model_temp <- rma.mv(yi = yi,
-                     V = vi,
-                     slab = author,
-                     data = meta_smolish,
-                     method = "REML",
-                     mods = ~ temp,
-                     random = ~ 1 | paper_num/indiv,
-                     test = "t")
-
-summary(model_temp)
-# model_temp: coeff = -0.0036, p = 0.7154
-# model_full_temp: coeff = -0.0551 , p = 0.4508
-
-# meta_final --> p-val = 0.5513
-# meta_umolL --> p-val = 0.0995
-
-# Graph temperature
-temp_predict <- as.data.frame(predict(model_temp,
-                                      addx=TRUE)) %>%
-  tibble::rownames_to_column("author") %>%
-  rename(temp = X.temp) 
-
-# set seed because otherwise I'll get different colours each time
-set.seed(1235)
-
-# plot predicted values as line, jitter observed effect sizes
-ggplot() +
-  geom_line(data = temp_predict, aes(temp, pred), colour = "white", size = 1.5) +
-  geom_jitter(data = meta_final, aes(temp, yi, colour = climate2)) +
-  geom_ribbon(data = temp_predict, aes(temp, pred, ymin = ci.lb, ymax = ci.ub), fill = "white", alpha = .1) +
-  theme_classic() +
-  labs(x = "Temperature (C)", y = "Effect Size", colour = "Climate Zone") +
-  geom_hline(yintercept=0, color="white", linetype="dashed") +
-  theme_black() +
-  scale_colour_manual(values = rev(pal2))
-
-#ggsave("Output/Figures/temperature_effect.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
-
-
-# Experimental design multilevel model-----
-model_exp_design <- rma.mv(yi = yi,
-                           V = vi,
-                           slab = author,
-                           data = meta_smolish,
-                           method = "REML",
-                           mods = ~ natural,
-                           random = ~ 1 | paper_num/indiv,
-                           test = "t")
-
-summary(model_exp_design)
-# meta_final --> p-val = 0.1796
-# meta_umolL --> p-val = 0.2430
-
-# How many papers in each bin?
-nat_n <- meta_final %>%
-  group_by(natural) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:5,
-         nat_bin = factor(c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm"),
-                          levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")))
-
-# Pull coefficient estimates so I can graph them
-intercept_nat <- coef(summary(model_exp_design))[1,1] # extract the intercept
-
-# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
-
-# When you add intercept to the other estimates, the p-value asks whether the CI’s intercept the intercept, not whether they intercept 0
-
-# Can’t just add intercept to CI, works for the estimates but not the CI
-# Try using emmeans for this
-
-# edit bin labels
-nat_effect_sum <- coef(summary(model_exp_design)) %>%
-  mutate(nat_bin = factor(c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm"),
-                          levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")),
-         effect = ifelse(nat_bin != "Field: unstocked", estimate + intercept_nat,
-                         intercept_nat),
-         ci.lb = ifelse(nat_bin != "Field: unstocked", ci.lb + intercept_nat,
-                        ci.lb),
-         ci.ub = ifelse(nat_bin != "Field: unstocked", ci.ub + intercept_nat,
-                        ci.ub)) %>% # add intercept to other coefficients
-  left_join(nat_n, by = "nat_bin")
-
-# GRAPH THIS?
-nat_labs <- c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")
-
-nat_n_labs <- c("n = 74", "n = 14", "n = 21", "n = 9", "n = 55")
-
-ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = nat_bin)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="white", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size", y = " ") +
-  scale_y_continuous(breaks = 1:length(nat_labs),
-                     labels = nat_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(nat_n_labs),
-                                         labels = nat_n_labs)) +
-  scale_colour_manual(values = rev(pal_star))+
-  theme_black()+ 
-  theme(legend.position = "none")
-
-#ggsave("Output/Figures/effects_nat.png", device = "png",
-#     height = 9, width = 8, dpi = 400)
-
-# Consumer activity level multilevel model -----
-model_act <- rma.mv(yi = yi,
-                    V = vi,
-                    slab = author,
-                    data = meta_final,
-                    method = "REML",
-                    mods = ~ c_activity,
-                    random = ~ 1 | paper_num/indiv, 
-                    test = "t")
-
-summary(model_act)
-# meta_final --> p-value = 0.2224 
-# meta_umolL --> p-value = 0.0982 
-
-# Graph consumer level 
-# How many papers in each bin?
-act_n <- meta_final %>%
-  group_by(c_activity) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:3)
-
-# Pull coefficient estimates so I can graph them
-intercept_act <- coef(summary(model_act))[1,1] # extract the intercept
-
-# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
-
-act_effect_sum <- coef(summary(model_act)) %>%
-  mutate(c_activity = factor(c("Vertebrate", "Mobile Invert", "Sessile Invert"),
-                             levels = c("Vertebrate", "Mobile Invert", "Sessile Invert")),
-         effect = ifelse(c_activity != "Vertebrate", estimate + intercept_act,
-                         intercept_act),
-         ci.lb = ifelse(c_activity != "Vertebrate", ci.lb + intercept_act,
-                        ci.lb),
-         ci.ub = ifelse(c_activity != "Vertebrate", ci.ub + intercept_act,
-                        ci.ub)) %>% # add intercept to other coefficients
-  left_join(act_n, by = "c_activity")
-
-# GRAPH THIS?
-act_labs <- c("Vertebrate", "Mobile Invert", "Sessile Invert")
-
-act_n_labs <- c("n = 55", "n = 20", "n = 98")
-
-ggplot(act_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = c_activity)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="white", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size", y = " ") +
-  scale_y_continuous(breaks = 1:length(act_labs),
-                     labels = act_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(act_n_labs),
-                                         labels = act_n_labs)) +
-  scale_colour_manual(values = rev(pal_star)) +
-  theme_black()+ 
-  theme(legend.position = "none")
-
-#ggsave("Output/Figures/effects_act.png", device = "png",
-#       height = 9, width = 8, dpi = 400)
-
-
-# I feel like at some point I will have to address the differences between the tropical taxons and the temperate taxons
-
-# Does activity level predict provisioned nutrients?
-
-meta_estimated <- meta_final %>%
-  filter(nutrient_estimate == "measured")
-
-model_activity_lmer <- lmer(added_nh4 ~ c_activity + (1|paper_num), data = meta_estimated)
-summary(model_activity_lmer)
-# Not really
-
-
-
-# Interaction latitude x background nutrients -----
-model_lat_back <- rma.mv(yi = yi,
-                         V = vi,
-                         slab = author,
-                         data = meta_final,
-                         method = "REML",
-                         mods = ~ background_nut * abs_lat,
-                         random = ~ 1 | paper_num/indiv, 
-                         test = "t")
-
-summary(model_lat_back)
-vif(model_lat_back)
-# meta_final --> p-val = 0.0480
-# meta_umolL --> p-val = 0.1055
-
-# So overall the test of mods is almost signif (p-val = 0.1079)
-# but each mod or interaction isn't signif
-# when you run the model without any interactions background nut is positive and signif and lat is negative and signif
-# so as you increase background nutrients the effect increases
-# so as you increase lat the effect decreases
-
-# check for colinearity
-vif(model_lat_back) # run this on the model without an interaction
-# value of 1 means they're not correlated with any other variables
-# higher value = greater correlation
-# values of more than 4 or 5 are regarded as moderate - high
-# values of 10+ are very high
-
-# OK so there's low colinearity (2.2405)
-
-# What is the relationship between the two
-lm_nut_lat <- lmer(background_nut ~ abs_lat + (1|paper_num), data = meta_final)
-summary(lm_nut_lat)
-visreg(lm_nut_lat)
-# there's a link but the R2 is quite low (0.11)
-
-# Graphing interaction between nut and lat 
-# make own df of lat values
-mean_lat_nut <- meta_final %>%
-  group_by(climate2) %>%
-  summarise(mean = mean(abs_lat),
-            min_nut = min(background_nut, na.rm = TRUE),
-            max_nut = max(background_nut, na.rm = TRUE))
-
-# what are the min and max chl a values for each zome
-
-
-lat_back_values <- data.frame(background_nut = c(seq(from = 0.00000117, to = 1.58000, length.out = 20),
-                                                 seq(from = 0.06521739, to = 9.96201, length.out = 20),
-                                                 seq(from = 1, to = 23, length.out = 20),
-                                                 seq(from = 10.61666667, to = 10.61666667, length.out = 20)),
-                              abs_lat = c(rep(17.42045, times = 20), 
-                                          rep(26.54635, times = 20), 
-                                          rep(48.00235, times = 20), 
-                                          rep(74.21667, times = 20))) %>%
-  mutate(`background_nut:abs_lat` = background_nut*abs_lat) %>%
-  as.matrix()
-
-# change the sequence for chl a to represent the chl a values we actually see at these latitudes (similar notation to how I did latitude with c() instead of rep())
-# and change lat values for each bin to better reflect the avg lat in that bin
-
-# use predict to tell it which values you want predictions for
-lat_back_predict <- as.data.frame(predict(object = model_lat_back,
-                                          newmods = lat_back_values)) %>%
-  cbind(lat_back_values) %>%
-  mutate(climate = factor(c(rep("Tropics", times = 20), 
-                            rep("Subtropics", times = 20), 
-                            rep("Temperate", times = 20), 
-                            rep("Polar", times = 20)),
-                          levels = c("Tropics", "Subtropics", "Temperate", "Polar")))
-
-# determine bin sizes
-bin_size <- meta_final %>%
-  drop_na(background_nut) %>%
-  filter(climate2 == "Temperate")
-
-# plot predicted values as line, jitter observed effect sizes
-ggplot() +
-  geom_line(data = lat_back_predict,  aes(background_nut, pred, colour = climate), size = 1.7) +
-  geom_point(data = meta_final, aes(background_nut, yi, colour = climate2), size = 2.5) +
-  geom_ribbon(data = lat_back_predict, aes(background_nut, pred, ymin = ci.lb, ymax = ci.ub, fill = climate), alpha = .2) +
-  labs(x = "Background nutrients (umol/L)", y = "Effect Size", colour = "Climate", fill = "Climate") +
-  geom_hline(yintercept=0, color="white", linetype="dashed") +
-  theme_black() +
-  xlim(c(0, 21.5)) + ylim(c(-1, 3.2)) +
-  scale_colour_manual(values = rev(pal2), labels = c("Tropics n = 37", 
-                                                     "Subtropics n = 64",
-                                                     "Temperate n = 69", 
-                                                     "Polar n = 2")) +
-  scale_fill_manual(values = rev(pal2), labels = c("Tropics n = 37", 
-                                                   "Subtropics n = 64",
-                                                   "Temperate n = 69", 
-                                                   "Polar n = 2")) 
-
-#ggsave("Output/Figures/interaction_nut_lat_effects.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
-
-# Interaction added nutrients x background nutrients ----
-# Use meta_umolL because that only has the measured nitrogen added in umol/L
-model_added_background <- rma.mv(yi = yi,
-                                 V = vi,
-                                 slab = author,
-                                 data = meta_umolL,
-                                 method = "REML",
-                                 mods = ~ added_N * background_nut,
-                                 random = ~ 1 | paper_num/indiv, 
-                                 test = "t")
-
-summary(model_added_background)
-# p value = 0.1075
-vif(model_added_background) # 1.1285 
-
-# Interaction temperature x added nutrients ------
-# Use meta_umolL because that only has the measured nitrogen added in umol/L
-model_temp_added <- rma.mv(yi = yi,
-                           V = vi,
-                           slab = author,
-                           data = meta_umolL,
-                           method = "REML",
-                           mods = ~ temp * added_N,
-                           random = ~ 1 | paper_num/indiv, 
-                           test = "t")
-
-summary(model_temp_added)
-# p-val = 0.3175
-
-vif(model_temp_added) #  1.0782 
-
-# Interaction temperature x background nutrients ------
-model_temp_back <- rma.mv(yi = yi,
-                          V = vi,
-                          slab = author,
-                          data = meta_final,
-                          method = "REML",
-                          mods = ~ temp * background_nut,
-                          random = ~ 1 | paper_num/indiv, 
-                          test = "t")
-
-summary(model_temp_back)
-# meta_final --> p-val = 0.4587
-# meta_umolL --> p-val = 0.1126
-
-vif(model_temp_back) # 1.9817
-
-
-# AIC model comparisons -------
-# Careful here bc each model has different data
-# OK I went through and ran each model on the same data (meta_umolL)
-# And recorded the differences in p-values
-# And the model with added_N and background_nutrients is the best
-
-
-AIC_values <- AIC(model_null, model_lat, model_back_nutrients, model_added_N, model_temp, model_exp_design, model_act, model_pp, model_lat_back, model_added_background, model_temp_added, model_temp_back)
-# Model with added and background is the best?????????
-
-BIC_values <- BIC(model_null, model_lat, model_back_nutrients, model_added_N, model_temp, model_exp_design, model_act, model_pp, model_lat_back, model_added_background, model_temp_added, model_temp_back)
-# Model with added N and model with added N and background is best here
-
-# OK SHIT SHIT SHIT now when I use the meta_umolL dataset for all the models the AIC is all jumbled
-# And lots of things are significant that were not before
-# OH GOD
-
-
-
-# Influential studies with single mod models --------
-meta_drop <- meta_final %>%
-  filter(paper_num != 17) 
-
-meta_umolL_drop <- meta_umolL %>%
-  filter(paper_num != 17) %>%
-  filter(paper_num != 23)
-
-# Summary of drop one at a time changes:
-# consumer activity = 23 makes it signif (0.0183 vs 0.1677)
-# lat x background = 17 makes it signif (0.0480 vs 0.1079) 
-# added_N x background = 17 makes it almost signif  (0.1075 vs 0.3726) 
-# PP = 17 makes it slightly more signif (0.0278 vs 0.0601)
-# Experimental design = 29 makes it not signif but closer..? (0.0982 vs 0.1998)
-
-# When you drop both 17 and 23 these mods become signif:
-# background_nutrients (0.0462 versus 0.3141)
-# consumer activity level (0.0268 versus 0.1677)
-# added_n x background (0.1075 versus 0.3726)
-
-# OK HERE'S THE DECISION. I DON'T THINK CONSUMER ACTIVITY LEVEL ACTUALLY MATTERS. SO I'M NOT DROPPING 23 JUST BECAUSE IT AFFECTS CONSUMER ACTIVITY LEVEL. SO JUST GONNA DROP 17 (CAVES WITH SPONGES)
-
-# Rerun lat ----
-re_model_lat <- rma.mv(yi = yi,
-                       V = vi,
-                       slab = author,
-                       data = meta_drop,
-                       method = "REML",
-                       mods = ~ abs_lat,
-                       random = ~ 1 | paper_num/indiv, 
-                       test = "t")
-
-summary(re_model_lat)
-
-# Removed # 17, p-value is 0.7132 versus 0.6181
-# Removed # 23, p-value is 0.6927 versus 0.6181
-# Removed # 29, p-value is 0.3172 versus 0.6181
-# Removed # 17 and 23, p-value is 0.5903 versus 0.6181
-
-# Rerun background nutrients-----
-re_model_back_nutrients <- rma.mv(yi = yi,
-                                  V = vi,
-                                  slab = author,
-                                  data = meta_drop,
-                                  method = "REML",
-                                  mods = ~ background_nut,
-                                  random = ~ 1 | paper_num/indiv,
-                                  test = "t")
-
-summary(re_model_back_nutrients)
-
-# Remove # 17 p-value is 0.2242 versus p-val =  0.3141
-# Remove # 23 p-value is 0.1181 versus p-val =  0.3141
-# Remove # 29 p-value is 0.7017 versus p-val =  0.3141
-# Removed # 17 and 23, p-value is 0.0462 versus 0.3141
-
-# Rerun added nitrogen ------
-# Only looking at added nitrogen where they measured it in umol/L
-re_model_added_N <- rma.mv(yi = yi,
-                           V = vi,
-                           slab = author,
-                           data = meta_umolL_drop,
-                           method = "REML",
-                           mods = ~ added_N,
-                           random = ~ 1 | paper_num/indiv, 
-                           test = "t")
-
-summary(re_model_added_N)
-
-# Remove # 17 p-value is 0.1853 versus p-val =  0.1976
-# Remove # 23 p-value is 0.1976 versus p-val =  0.1976
-# Remove # 29 p-value is 0.2290 versus p-val =  0.1976
-# Removed # 17 and 23, p-value is 0.1853 versus 0.1976
-
-# Rerun temperature multilevel model-----
-re_model_temp <- rma.mv(yi = yi,
-                        V = vi,
-                        slab = author,
-                        data = meta_drop,
-                        method = "REML",
-                        mods = ~ temp,
-                        random = ~ 1 | paper_num/indiv,
-                        test = "t")
-
-summary(re_model_temp)
-
-# Remove # 17 p-value is 0.5513 versus p-val =  0.6678
-# Remove # 23 p-value is 0.2581 versus p-val =  0.6678
-# Remove # 29 p-value is 0.9791 versus p-val =  0.6678
-# Removed # 17 and 23, p-value is 0.1525 versus 0.6678
-
-# Rerun experimental design -----
-re_model_exp_design <- rma.mv(yi = yi,
-                              V = vi,
-                              slab = author,
-                              data = meta_drop,
-                              method = "REML",
-                              mods = ~ natural,
-                              random = ~ 1 | paper_num/indiv,
-                              test = "t")
-
-summary(re_model_exp_design)
-
-# Remove # 17 p value is 0.1796 vs 0.1998 
-# Remove # 23 p value is 0.2493 vs 0.1998 
-# Remove # 29 p value is 0.0982 vs 0.1998 
-# Removed # 17 and 23, p-value is 0.3051 versus 0.1998
-
-# Rerun consumer activity level -----
-re_model_act <- rma.mv(yi = yi,
-                       V = vi,
-                       slab = author,
-                       data = meta_drop,
-                       method = "REML",
-                       mods = ~ c_activity,
-                       random = ~ 1 | paper_num/indiv, 
-                       test = "t")
-
-summary(re_model_act)
-
-# Removed # 17 p-value is 0.2224 vs 0.1677 
-# Removed # 23 p-value is 0.0183 vs 0.1677 
-# Removed # 29 p-value is 0.2244 vs 0.1677 
-# Removed # 17 and 23, p-value is 0.0268 versus 0.1677
-
-# Rerun primary producer -----
-re_model_pp <- rma.mv(yi = yi,
-                      V = vi,
-                      slab = author,
-                      data = meta_drop,
-                      method = "REML",
-                      mods = ~ pp_group ,
-                      random = ~ 1 | paper_num/indiv,
-                      test = "t")
-
-summary(re_model_pp) 
-
-# Removed # 17 p-value is 0.0278 vs 0.0601 
-# Removed # 23 p-value is 0.0627 vs 0.0601 
-# Removed # 29 p-value is 0.0093 vs 0.0601 
-# Removed # 17 and 23, p-value is 0.0244 versus 0.0601
-
-
-# Rerun latitude x background nutrients -----
-re_model_lat_back <- rma.mv(yi = yi,
-                            V = vi,
-                            slab = author,
-                            data = meta_drop,
-                            method = "REML",
-                            mods = ~ background_nut * abs_lat,
-                            random = ~ 1 | paper_num/indiv, 
-                            test = "t")
-
-summary(re_model_lat_back)
-
-# Removed # 17 p-value is 0.0480 vs 0.1079 
-# Removed # 23 p-value is 0.2204 vs 0.1079 
-# Removed # 29 p-value is 0.2186 vs 0.1079 
-# Removed # 17 and 23, p-value is 0.0892 versus 0.1079
-
-# Rerun added nutrients x background nutrients ----
-# Use meta_umolL because that only has the measured nitrogen added in umol/L
-re_model_added_background <- rma.mv(yi = yi,
-                                    V = vi,
-                                    slab = author,
-                                    data = meta_umolL_drop,
-                                    method = "REML",
-                                    mods = ~ added_N*background_nut,
-                                    random = ~ 1 | paper_num/indiv, 
-                                    test = "t")
-
-summary(re_model_added_background)
-
-# Removed # 17 p-value is 0.1075 vs 0.3726 
-# Removed # 23 p-value is 0.3726 vs 0.3726 
-# Removed # 29 p-value is 0.2793 vs 0.3726 
-# Removed # 17 and 23, p-value is 0.1075 versus 0.3726
-
-
-# Rerun temperature x added nutrients ------
-# Use meta_umolL because that only has the measured nitrogen added in umol/L
-re_model_temp_added <- rma.mv(yi = yi,
-                              V = vi,
-                              slab = author,
-                              data = meta_umolL_drop,
-                              method = "REML",
-                              mods = ~ temp * added_N,
-                              random = ~ 1 | paper_num/indiv, 
-                              test = "t")
-
-summary(re_model_temp_added)
-
-# Removed # 17 p-value is 0.3175 vs 0.5870 
-# Removed # 23 p-value is 0.5870 vs 0.5870 
-# Removed # 29 p-value is 0.6790 vs 0.5870 
-# Removed # 17 and 23, p-value is 0.3175 versus 0.5870
-
-
-# Rerun temperature x background nutrients ------
-re_model_temp_back <- rma.mv(yi = yi,
-                             V = vi,
-                             slab = author,
-                             data = meta_drop,
-                             method = "REML",
-                             mods = ~ temp * background_nut,
-                             random = ~ 1 | paper_num/indiv, 
-                             test = "t")
-
-summary(re_model_temp_back)
-
-# Removed # 17 p-value is 0.4587 vs 0.4673 
-# Removed # 23 p-value is 0.2985 vs 0.4673 
-# Removed # 29 p-value is 0.8587 vs 0.4673 
-# Removed # 17 and 23, p-value is 0.2063 versus 0.4673
-
-AIC(re_model_act, re_model_added_background, re_model_added_N, re_model_back_nutrients, re_model_exp_design, re_model_lat, re_model_lat_back, re_model_pp, re_model_temp, re_model_temp_added, re_model_temp_back)
-# Added x background still the best model
-
-temp <- meta_final %>%
-  filter(abs_lat > 30) %>%
-  filter(obs_num == 1)
-
-
-
-
-# old stats -----
-# Full versus reduced model comparisons in terms of fit statistics and likelihoods can be obtained with anova.rma
-# Permutation tests for the model coefficient(s) can be obtained with permutest.rma.uni. Tests and confidence intervals based on (cluster) robust methods can be obtained with robust.rma.uni.
-# Tests for funnel plot asymmetry (which may be indicative of publication bias) can be obtained with ranktest.rma and regtest.rma. For models without moderators, the trimfill.rma.uni method can be used to carry out a trim and fill analysis and hc.rma.uni provides a random-effects model analysis that is more robust to publication bias (based on the method by Henmi & Copas, 2010).
-
-# Try using "Doing Meta-Analysis in R"
-# https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/metareg.html
-
-# If you don't want to compare the models directly using the anova function, use the "REML" (restricted maximum likelihood) 
-model_control <- rma(yi = yi,
-                     vi = vi,
-                     data = meta_final,
-                     method = "ML",
-                     test = "knha")
-
-model_lat <- rma(yi = yi,
-                 vi = vi,
-                 data = meta_final,
-                 method = "ML",
-                 mods = ~ lat_dec,
-                 test = "knha")
-
-# is the model with lat better than the null model? NO
-anova(model_control, model_lat)
-
-model_chla <- rma(yi = yi,
-                  vi = vi,
-                  data = meta_final,
-                  method = "ML",
-                  mods = ~ chla_bin,
-                  test = "knha")
-
-# how about the model with chl a? is it better than the null model? YES???
-anova(model_control, model_chla)
-
-# Look at effect sizes????
-ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
-  geom_point(size = 3) +
-  scale_colour_manual(values = rev(pal), labels = climate_labs, guide = guide_legend(reverse = TRUE)) +
-  labs( y = "Lattitude", x = "Effect size", colour = "Climate Zone") + 
-  geom_vline(xintercept = 0, linetype="dotted", colour = "white", size = 1.6) +
-  theme_black() +
-  ylim(c(-75, 75))
-
-#ggsave("Output/Figures/response_lat.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
-
-
-
-ggplot(meta, aes(x = yi, y = lat_dec,  colour = climate_zone)) +
-  geom_point(size = 3) +
-  scale_colour_manual(values = rev(pal), guide = "none") +
-  labs( y = "Lattitude", x = "Effect size", colour = "Climate Zone") + 
-  geom_vline(xintercept = 0, linetype="dotted", colour = "white", size = 1.6) +
-  theme_black()
-
-#ggsave("Output/Figures/response_lat_noleg.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
-
-# Plotting binned chla ---------
-# How many papers in each bin?
-chla_n <- meta_final %>%
-  group_by(chla_bin) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:5,
-         chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high")))
-
-# Pull coefficient estimates so I can graph them
-intercept_chla <- coef(summary(model_chla_paper_bin))[1,1] # extract the intercept
-
-# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
-chla_effect_sum <- coef(summary(model_chla_paper_bin)) %>%
-  mutate(chla_bin = factor(c("Very low", "Low", "Medium", "High", "Very high"),
-                           levels = c("Very low", "Low", "Medium", "High", "Very high")),
-         effect = ifelse(chla_bin != "Very low", estimate + intercept_chla,
-                         intercept_chla),
-         ci.lb = ifelse(chla_bin != "Very low", ci.lb + intercept_chla,
-                        ci.lb),
-         ci.ub = ifelse(chla_bin != "Very low", ci.ub + intercept_chla,
-                        ci.ub)) %>%# add intercept to other coefficients
-  left_join(chla_n, by = "chla_bin")
-
-# GRAPH THIS?
-chla_bin_labs <- c("Very low", "Low", "Medium", "High", "Very high")
-n_labs_chla <- c("n = 109", "n = 29", "n = 7", "n = 6", "n = 18")
-
-ggplot(chla_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = chla_bin)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept = 0, color="white", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size (ROM)", y = "Chlorophyll a") +
-  scale_y_continuous(breaks = 1:length(chla_bin_labs),
-                     labels = chla_bin_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(n_labs_chla),
-                                         labels = n_labs_chla)) +
-  scale_color_brewer(palette = 'Greens') +
-  theme_black()+ 
-  theme(legend.position = "none")
-
-#ggsave("Output/Figures/effects_chla.png", device = "png",
-#      height = 9, width = 16, dpi = 400)
-
-
-# Old graphing climate zones -------
-
-# # Pull coefficient estimates so I can graph them
-intercept_lat <- coef(summary(model_lat))[1,1] # extract the intercept
-
-# How many papers in each bin?
-lat_n <- meta_final %>%
-  group_by(climate_zone) %>%
-  summarise(n = n()) %>%
-  rename(climate = climate_zone) %>%
-  mutate(dummy = 1:6)
-
-# Now pull the rest of the coefficients, add a column for chla, and adjust the estimates to reflect the estimated effect sizes
-lat_effect_sum <- coef(summary(model_lat)) %>%
-  mutate(climate = factor(c("ST", "SST", "T", "NST", "NT", "NP"),
-                          levels = c("ST", "SST", "T", "NST", "NT", "NP")),
-         effect = ifelse(climate != "ST", estimate + intercept_lat,
-                         intercept_lat),
-         ci.lb = ifelse(climate != "ST", ci.lb + intercept_lat,
-                        ci.lb),
-         ci.ub = ifelse(climate != "ST", ci.ub + intercept_lat,
-                        ci.ub)) %>%# add intercept to other coefficients
-  left_join(lat_n, by = "climate")
-
-# GRAPH THIS
-n_labs_lat <- c("n = 5", "n = 10", "n = 28", "n = 50", "n = 79", "n = 2")
-
-ggplot(lat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="white", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size (ROM)", y = "Climate zone") +
-  scale_y_continuous(breaks = 1:length(climate_labs),
-                     labels = climate_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(n_labs_lat),
-                                         labels = n_labs_lat)) +
-  scale_colour_manual(values = rev(pal))  +
-  theme_black()+ 
-  theme(legend.position = "none")
-
-#ggsave("Output/Figures/effects_lat", device = "png",
-#      height = 9, width = 16, dpi = 400)
-
-# # Try using the 4 climate zones and graph ----
-model_climate_paper <- rma.mv(yi = yi,
-                              V = vi,
-                              slab = author,
-                              data = meta_final,
-                              method = "REML",
-                              mods = ~ climate2,
-                              random = ~ 1 | paper_num/indiv, 
-                              test = "t")
-
-summary(model_climate_paper)
-# Look at Test of Moderators to detemine whether there are significant differences between the subgroups
-# p-value is 0.6538 so NO, there is NO difference!
-# The Model Results are printed within a meta-regression framework. This means that we cannot directly extract the estimates in order to obtain the pooled effect sizes within subgroups.
-
-# # Pull coefficient estimates so I can graph them
-intercept_cli <- coef(summary(model_climate_paper))[1,1] # extract the intercept
-
-# How many papers in each bin?
-cli_n <- meta_final %>%
-  group_by(climate2) %>%
-  summarise(n = n()) %>%
-  mutate(dummy = 1:4)
-
-# Now pull the rest of the coefficients, add a column for climate, and adjust the estimates to reflect the estimated effect sizes
-cli_effect_sum <- coef(summary(model_climate_paper)) %>%
-  mutate(climate2 = factor(c("Tropics", "Subtropics", "Temperate", "Polar"),
-                           levels = c("Tropics", "Subtropics", "Temperate", "Polar")),
-         effect = ifelse(climate2 != "Tropics", estimate + intercept_cli,
-                         intercept_cli),
-         ci.lb = ifelse(climate2 != "Tropics", ci.lb + intercept_cli,
-                        ci.lb),
-         ci.ub = ifelse(climate2 != "Tropics", ci.ub + intercept_cli,
-                        ci.ub)) %>% # add intercept to other coefficients
-  left_join(cli_n, by = "climate2")
-
-
-# GRAPH THIS
-n_labs_cli <- c("n = 28", "n = 68", "n = 36", "n = 2")
-cli_labs <- c("Tropics", "Subtropics", "Temperate", "Polar")
-
-ggplot(cli_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb, xmax = ci.ub, colour = climate2)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="white", linetype="dashed") +
-  theme_classic() +
-  labs(x = "Effect size (ROM)", y = "Climate zone") +
-  scale_y_continuous(breaks = 1:length(cli_labs),
-                     labels = cli_labs,
-                     sec.axis = sec_axis(~.,
-                                         breaks = 1:length(n_labs_cli),
-                                         labels = n_labs_cli)) +
-  scale_colour_manual(values = rev(pal))  +
-  theme_black()+ 
-  theme(legend.position = "none")
-
-#ggsave("Output/Figures/effects_climate", device = "png",
-#      height = 9, width = 16, dpi = 400)
-
-
-# Old way to get shapefiles ------
-# Load chl a
-#setwd("~/Downloads")
-raster_summer2004 <- raster("Data/Rasters/A20041732004264.L3m_SNSU_CHL_chlor_a_4km.nc")
-#setwd("~/Documents/MSc/Ch2-Meta-analysis")
-
-# make a df for this one season / year
-meta_summer2004 <- meta %>%
-  filter(season == "summer" & year_of_study == "2004") %>%
-  dplyr::select(indiv, lat_dec, long_dec)
-
-write_csv(meta_summer2004, path =  "Output/Data/season_year/meta_summer2004.csv")
-
-# Exported the meta_summer2004 df to csv, loaded it into QGIS, added a layer of points ('create points layer from table' tool), then exported it as a shapefile
-
-# Open QGIS
-# Layer > Add Layer > Add Deliminated Text Layer > select file
-# File format = CSV
-# Geometry Definition: Select Point coordinates, set x = long and y = lat
-# Layer Settings: select Use spatial index
-# Click Add
-# Right click layer > Export > Save feature as > ESRI Shapefile
-# Click dots next to file name to set path (put in shapefile folder)
-# Click ok
-
-sf_summer2004 <- readOGR(dsn = path.expand("~/Documents/MSc/Ch2-Meta-analysis/Shapefiles"), layer = "summer2004")
-
-chla_summer2004 <- raster::extract(raster_summer2004, sf_summer2004[,c("lat_dec", "long_dec")], df = TRUE)
-
-summer2004 <- cbind(meta_summer2004, chla_summer2004) %>%
-  select(-ID)
-
-
-# Try using tutorial to do meta stats? -----
-#https://www.selfmindsociety.com/post/a-forest-plot-in-ggplot2
-meta_model <- rma(yi, vi, data = meta )
-
-meta_model2 <- rma(yi, vi, mods = ~ climate_zone, data = meta )
-
-# Now calculate effect size for each group???????
-model_NP <- rma(yi, vi, data = subset(meta, meta$climate_zone=="NP"))
-summary.rma(model_NP)
-#estimate      se     zval    pval    ci.lb   ci.ub 
-# -0.0902    0.1086  -0.8307  0.4062  -0.3029  0.1226 
-
-
-model_NT <- rma(yi, vi, data = subset(meta, meta$climate_zone=="NT"))
-summary.rma(model_NT)
-#estimate      se    zval    pval   ci.lb   ci.ub 
-# 0.2693     0.0968  2.7826  0.0054  0.0796  0.4590  ** 
-
-model_NST <- rma(yi, vi, data = subset(meta, meta$climate_zone=="NST"))
-summary.rma(model_NST)
-# estimate      se    zval    pval   ci.lb   ci.ub 
-#   0.4506  0.0420  10.7289  <.0001  0.3683  0.5329  *** 
-
-model_T <- rma(yi, vi, data = subset(meta, meta$climate_zone=="T"))
-summary.rma(model_T)
-#estimate      se    zval    pval   ci.lb   ci.ub 
-#0.3370      0.0830  4.0584  <.0001  0.1742  0.4998  *** 
-
-model_SST <- rma(yi, vi, data = subset(meta, meta$climate_zone=="SST"))
-summary.rma(model_SST)
-#estimate      se    zval    pval    ci.lb   ci.ub 
-#0.2807     0.1597  1.7578  0.0788  -0.0323  0.5937  .
-
-model_ST <- rma(yi, vi, data = subset(meta, meta$climate_zone=="ST"))
-summary.rma(model_ST)
-#estimate      se    zval    pval    ci.lb   ci.ub 
-# 0.3740     0.2950  1.2676  0.2049  -0.2043  0.9522  
-
-# Load these model outputs
-model_output <- read_csv("Output/Data/model_outputs.csv") %>%
-  mutate(climate_zone = factor(climate_zone, levels = c("ST", "SST", "T", "NST", "NT", "NP")))
-
-# Plot?
-
-ggplot(model_output, aes(y= climate_zone, x = effect_est, xmin = ci_lb, xmax = ci_ub)) +
-  geom_point() +
-  geom_errorbar(height = .1) +
-  geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5) +
-  theme_classic()
-
-
-# another way of trying to stats
-meta_model <- rma(yi, vi, data = meta) 
-summary.rma(meta_model)
-# so if we ignore everything, the overall effect of animals on pp is 0.3092, and this is significant
-forest.rma(meta_model)
-
-
-meta_model2 <- rma(yi, vi, mods = ~ climate_zone, data = meta )
-summary.rma(meta_model2)
-forest(meta_model2)
-
-meta_model3 <- rma(yi, vi, mods = ~ lat_dec, data = meta )
-summary.rma(meta_model3)
-forest(meta_model3, cex = 1, subset(study))
-
