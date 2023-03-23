@@ -292,8 +292,12 @@ summary(model_cat)
 AIC_tab <- AIC(model_full_lat, model_full_back, model_full_temp, model_null, model_cat) %>%
   rownames_to_column() %>%
   mutate(best = min(AIC),
-         delta = AIC - best)
+         delta = AIC - best,
+         likelihood = exp( -0.5*delta),
+         sum = sum(likelihood),
+         AICw = likelihood/sum)
 
+aic_table(model_full_lat, model_full_back, model_full_temp, model_null, model_cat)
 # So the model with background nutrients is the best model according to AIC but there's still moderate support for all three of lat, temp, and background nutrients
 
 # Present the coefficient plot of the best model, but include the other two in the supp
@@ -323,6 +327,8 @@ back_nut_effect_sum <- coef(summary(model_full_back)) %>%
   rownames_to_column()%>%
   mutate(dummy = 1, effect = estimate)
 
+
+
 # Experimental design
 nat_n <- meta_data %>%
   group_by(nat_bin) %>%
@@ -345,9 +351,9 @@ nat_effect_sum <- coef(summary(model_full_back)) %>%
          effect = ifelse(nat_bin != "Field: unstocked", estimate + intercept_nat,
                          intercept_nat), # add intercept to the estimated coefficient
          ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
-         ci.up_adjust = effect + (1.96*se)) %>% 
+         ci.up_adjust = effect + (1.96*se),
+         duh = "yes") %>% 
   left_join(nat_n, by = "nat_bin")
-
 
 # Primary producer group
 pp_n <- meta_data %>%
@@ -365,7 +371,8 @@ pp_effect_sum <- coef(summary(model_full_back)) %>%
          effect = ifelse(pp_group != "Algae", estimate + intercept_pp,
                          intercept_pp), # add intercept to the estimated coefficient
          ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
-         ci.up_adjust = effect + (1.96*se)) %>% 
+         ci.up_adjust = effect + (1.96*se),
+         duh = "yes") %>% 
   left_join(pp_n, by = "pp_group")
 
 # Labels
@@ -380,20 +387,23 @@ pp_labs <- c("Algae", "Coral", "Phytoplankton", "Plants")
 pp_n_labs <- c("n = 25", "n = 47", "n = 53", "n = 47")
 
 # plot each moderator using the function I created (plot_themes)
-back_nut_plot <- effect_plot(back_nut_effect_sum, ci.lb, ci.ub, rowname, pal_sm[3], cont_labs, back_n_labs) +
+back_nut_plot <- effect_plot(back_nut_effect_sum, ci.lb, ci.ub, rowname, pal_star[1], cont_labs, back_n_labs) +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank())
 
-nat_plot <- effect_plot(nat_effect_sum, ci.lb_adjust,ci.up_adjust, nat_bin, rev(pal_star), nat_labs, nat_n_labs) +
+nat_plot <- effect_plot(nat_effect_sum, ci.lb_adjust,ci.up_adjust, duh, pal_star[2], nat_labs, nat_n_labs) +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank()) 
 
-pp_plot <- effect_plot(pp_effect_sum, ci.lb_adjust, ci.up_adjust, pp_group, rev(pal_star), pp_labs, pp_n_labs) +
-  xlab("Effect Size")
+pp_plot <- effect_plot(pp_effect_sum, ci.lb_adjust, ci.up_adjust, duh, pal_star[3], pp_labs, pp_n_labs) +
+  xlab("Effect Size") +
+  scale_x_continuous(limits = c(-0.5, 2),
+                     labels = ~paste(., round((10^.), digits = 1), sep = "\n"),
+                     name = "Effect size (log scale)\nEffect Size (response ratio)")
 
 # Effect size plot (back nut model) ------
 back_nut_plot + nat_plot + pp_plot + 
-  plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null"))) + plot_annotation(tag_levels =  "A")
+  plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
 #ggsave("Output/Pub_figs/bn_effect_size_mod.png", device = "png",
 #       height = 9, width = 16, dpi = 400)
@@ -512,11 +522,18 @@ temp_plot + nat_plot3 + pp_plot3 +
 # Consumers vs pp vs lat -----
 pal <- pnw_palette("Bay", 6)
 pal2 <- pnw_palette("Bay", 4)
+pal3 <- pnw_palette("Bay", 5)
+pal_ew <- c("#00496f", "#0f85a0", "#ed8b00", "#dd4124")
+
+set.seed(1234) # so things stop jumping around!
 
 meta_data %>% 
-  mutate(pp_taxa = factor(pp_taxa, levels = rev(c("Co", "En", "P", "CA", "FA", "S", "O")))) %>%
+  mutate(pp_taxa = factor(pp_taxa,
+          levels = rev(c("Co", "En", "P", "CA", "FA", "S", "O")))) %>%
+  filter(climate != "Subtropics") %>%
+  rbind(meta_data %>% filter(climate == "Subtropics")) %>%
   ggplot(aes(c_group, pp_taxa, colour = climate, fill = climate, pch = nat_bin)) +
-  geom_jitter(size = 6, alpha = 0.3, width = 0.25, height = 0.25) +
+  geom_jitter(size = 6, alpha = 0.3, width = 0.35, height = 0.35) +
   theme_white() +
   labs(x = "Consumer taxa", y = "Primary producer taxa", colour = "Climate",
        pch = "Experiment", fill = "Climate") +
@@ -524,9 +541,10 @@ meta_data %>%
   scale_y_discrete(labels = c("Mangrove", "Seagrass", "Fleshy Algae", "Calcareous algae", "Phytoplankton", "Endosymbiont", "Coral")) +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18)) +
-  scale_colour_manual(values = rev(pal2)) +
-  scale_fill_manual(values = rev(pal2)) +
+  scale_colour_manual(values = rev(pal_ew)) +
+  scale_fill_manual(values = rev(pal_ew)) +
   scale_shape_manual(values = c(21, 22, 23, 24, 25))
+
 
 #ggsave("Output/Pub_figs/taxa_region.png", device = "png",
 #       height = 9, width = 16, dpi = 400)

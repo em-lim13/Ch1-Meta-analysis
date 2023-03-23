@@ -102,8 +102,7 @@ effect_plot <- function(data, xmin, xmax, colour, pal, lab1, lab2) {
     labs(x = "", y = " ")  +
     theme_white()+ 
     theme(legend.position = "none",
-          plot.margin = unit(c(0,0,0,0), "cm"),
-          plot.background = element_rect(colour = "black", fill=NA, size=1)) +
+          plot.margin = unit(c(0,0,0,0), "cm")) +
     xlim(c(-0.5, 2)) +
     scale_colour_manual(values = {{pal}}) +
     scale_y_continuous(breaks = 1:length({{lab1}}),
