@@ -1,6 +1,42 @@
 # Code Graveyard
 # Scraps from the meta-analysis code
 
+# Check to see if the kind of response measured matters
+meta_data2 <- meta_data %>%
+  mutate(pp_metric = case_when(response == "density" |
+                                 response == "count" ~ "abundance",
+                               response == "biomass" |
+                                 response == "buoyant weight" | 
+                                 response == "dry weight" |
+                                 response == "mass" ~ "weight",
+                               response == "area" |
+                                 response == "percent cover" ~ "size (^2)",
+                               response == "length" | 
+                                 response == "width" |
+                                 response == "circumference" ~ "size (^1)",
+                               response == "volume" ~ "size (^3)",
+                               response == "photosynthesis" |
+                                 response == "chl_a" |
+                                 response == "protein" ~ "compound"
+  ))
+
+# Model with pp response
+model_resp <- rma.mv(yi = yi,
+                     V = vi,
+                     slab = author,
+                     data = meta_data2,
+                     method = "REML",
+                     mods = ~ background_nut_stand  + natural  + pp_group + pp_metric,
+                     random = ~ 1 | paper_num/indiv, 
+                     test = "t")
+
+summary(model_resp)
+
+#Basically no, there's no effect of how they measured the ppbirds, fish, echinoderms, molluscs, cnidarians, or sponges
+
+
+
+
 # Load papers that I can't use but that mostly pass the criteria
 meta_rejected <- read_csv("Output/Data/rejected_papers.csv") %>%
   mutate(abs_lat = abs(lat_dec),
