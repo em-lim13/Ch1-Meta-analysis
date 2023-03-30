@@ -328,7 +328,6 @@ back_nut_effect_sum <- coef(summary(model_full_back)) %>%
   mutate(dummy = 1, effect = estimate)
 
 
-
 # Experimental design
 nat_n <- meta_data %>%
   group_by(nat_bin) %>%
@@ -584,6 +583,31 @@ pp_used <- meta_data %>%
 
 c_used <- meta_data %>%
   count(c_group, c_family, c_genus, c_species)
+
+# Which papers did I get background nut or temp proxies for? ----
+bn_sum <- meta_data %>%
+  group_by(nutrient_levels) %>%
+  summarise(background_nut = mean(background_nut))
+
+# Which papers did I estimate bn for?
+meta_proxy <- meta_data %>%
+  filter(is.na(nutrient_estimate)) %>%
+  select(author, paper_num, nutrient_levels, year_of_study, season, background_nut, comments) %>%
+  distinct(paper_num, .keep_all = TRUE)
+
+meta_proxy <- meta_data %>%
+  filter(is.na(temp)) %>%
+  select(author, paper_num, year_of_study, season, temp, comments) %>%
+  distinct(paper_num, .keep_all = TRUE)
+
+lat_long <- meta_data %>%
+  distinct(paper_num, lat_dec, long_dec)
+
+lat_long2 <- meta_data %>%
+  select(lat_dec, long_dec)
+
+write_csv(lat_long2, "Output/Data/lat_long2.csv")
+
 
 # Independence and Bias -------
 
