@@ -25,7 +25,7 @@ rstudioapi::writeRStudioPreference("data_viewer_max_columns", 1000L)
 
 # Load data
 # And do a million manipulations......
-meta_full <- read_csv("Output/Data/march_meta2023.csv") %>%
+meta_full <- read_csv("Output/Data/april_meta2023.csv") %>%
   mutate(sd_treatment = replace_na(sd_treatment, 999), # assigning a dummy to replace
          sd_control = replace_na(sd_control, 999)) %>% # assigning a dummy to replace
   mutate(sd_treatment = ifelse(sd_treatment == 999, se_treatment*sqrt(treatment_n), sd_treatment), # replacing that dummy with the estimated SD
@@ -44,15 +44,15 @@ meta_full <- read_csv("Output/Data/march_meta2023.csv") %>%
                              c_taxa == "G" ~ "Mollusc", 
                              c_taxa == "B" ~ "Mollusc",
                              c_taxa == "SP" ~ "Sponge",
-                             c_taxa == "SI" ~ "Cnidaria",
-                             c_taxa == "MI" ~ "Cnidaria"),
+                             c_taxa == "SI" ~ "Cnidaria", # this is the 1 obelia
+                             c_taxa == "MI" ~ "Cnidaria"), # these are the jellies
          c_group = factor(c_group, levels = c("Bird", "Fish", "Echinoderm", "Mollusc", "Cnidaria", "Sponge")),
          nat_bin = case_when(natural == 1 ~ "Field: unstocked",
                              natural == 2 ~ "Field: PP stocked",
                              natural == 3 ~ "Field: animals stocked",
                              natural == 4 ~ "Field: both stocked",
                              natural == 5 ~ "Mesocosm"),
-         nat_bin = factor(nat_bin, levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")))
+         nat_bin = factor(nat_bin, levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm"))) 
 
 # using 23.45 as the cut off bc that's between the cancer and capricorn?
 # Another paper set 23.5 - 23.5, and set temperate as 30-40
@@ -69,7 +69,7 @@ meta_no_neg <- meta_full %>%
  # NO DO NOT DO THIS IT RUINS EVERYTHING EVERY STATISTICAL ANALYSIS BECOMES P = 0.99
 
 meta_calc <- meta_no_neg %>%
-  escalc(measure = "ROM", data = meta_no_neg, # ROM for log transformed ratio of means
+  escalc(measure = "ROM", data = meta_no_neg, 
        m1i = mean_treatment, sd1i = sd_treatment, # log(treatment/control)
        m2i = mean_control, sd2i = sd_control,
        n1i = treatment_n, n2i = control_n) %>%
@@ -85,18 +85,19 @@ meta_calc <- meta_no_neg %>%
           pp_taxa == "P" ~ 'Phytoplankton',
           pp_taxa == "S" ~ "Plants",
           pp_phyla == "Tracheophyta" ~ "Plants",
-          pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")),
+          pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")), # the one anemone
          pp_groupz = as.factor(case_when(
-           pp_taxa == "CA"  ~ 'Crustose algae',
+           pp_taxa == "CA"  ~ 'Calcareous algae',
            pp_taxa == "FA" ~ 'Fleshy algae',
-           pp_taxa == "En" ~ "Endo",
+           pp_taxa == "En" ~ "Endosymbiont",
            pp_taxa == "Co" ~ 'Coral',
            pp_taxa == "P" ~ 'Phytoplankton',
            pp_taxa == "S" ~ "Seagrass",
-           pp_taxa == "O" & pp_phyla == "Tracheophyta" ~ "Trees",
+           pp_taxa == "O" & pp_phyla == "Tracheophyta" ~ "Mangrove+cordgrass",
            pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")),
+         pp_groupz = factor(pp_groupz, levels = rev(c("Coral", "Endosymbiont", "Phytoplankton", "Calcareous algae", "Fleshy algae", "Seagrass", "Mangrove+cordgrass"))),
          lat_stand = base::scale(abs_lat),
-         background_nut_stand = scale(background_nut),
+         background_nut_stand = scale(background_nut_umolL),
          added_N_stand = scale(added_N),
          temp_stand = scale(temp))
 
@@ -289,7 +290,7 @@ model_cat <- rma.mv(yi = yi,
 summary(model_cat)
 
 # Now see which model has the best support
-AIC_tab <- AIC(model_full_lat, model_full_back, model_full_temp, model_null, model_cat) %>%
+AIC_tab <- AIC(model_full_lat, model_full_back, model_full_temp, model_null) %>%
   rownames_to_column() %>%
   mutate(best = min(AIC),
          delta = AIC - best,
@@ -311,6 +312,13 @@ aic_table(model_full_lat, model_full_back, model_full_temp, model_null, model_ca
 
 
 # Figures --------
+
+# fuck around and see what those new slattery papers did
+meta_data %>%
+  mutate(slat_new = ifelse(paper_num == 17 & obs_num > 15, "new_slat", "not")) %>%
+ggplot(aes(background_nut_umolL, yi, colour = slat_new)) +
+  geom_point()
+
 # Maybe some help here?
 # https://www.metafor-project.org/doku.php/tips:meta_regression_with_log_rr
 
@@ -326,7 +334,6 @@ back_nut_effect_sum <- coef(summary(model_full_back)) %>%
   slice(-1)%>%
   rownames_to_column()%>%
   mutate(dummy = 1, effect = estimate)
-
 
 # Experimental design
 nat_n <- meta_data %>%
@@ -377,13 +384,13 @@ pp_effect_sum <- coef(summary(model_full_back)) %>%
 # Labels
 cont_labs <- c("Background nutrients", "Absolute latitude", "Temperature")
 names(cont_labs) <- c("background_nut_stand", "lat_stand", "temp_stand")
-back_n_labs <- c("n = 172")
+back_n_labs <- c("n = 180")
 
 nat_labs <- c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")
-nat_n_labs <- c("n = 74", "n = 14", "n = 21", "n = 9", "n = 54")
+nat_n_labs <- c("n = 84", "n = 12", "n = 21", "n = 9", "n = 54")
 
 pp_labs <- c("Algae", "Coral", "Phytoplankton", "Plants")
-pp_n_labs <- c("n = 25", "n = 47", "n = 53", "n = 47")
+pp_n_labs <- c("n = 27", "n = 55", "n = 53", "n = 45")
 
 # plot each moderator using the function I created (plot_themes)
 back_nut_plot <- effect_plot(back_nut_effect_sum, ci.lb, ci.ub, rowname, pal_star[1], cont_labs, back_n_labs) +
@@ -404,8 +411,9 @@ pp_plot <- effect_plot(pp_effect_sum, ci.lb_adjust, ci.up_adjust, duh, pal_star[
 back_nut_plot + nat_plot + pp_plot + 
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
-#ggsave("Output/Pub_figs/bn_effect_size_mod.png", device = "png",
+#ggsave("Output/Pub_figs/bn_effect_size_mod3.png", device = "png",
 #       height = 9, width = 16, dpi = 400)
+
 
 # Graph the other models! --------
 # do the same thing for a supplement figure
@@ -428,7 +436,8 @@ nat_effect_sum2 <- coef(summary(model_full_lat)) %>%
          effect = ifelse(nat_bin != "Field: unstocked", estimate + int_nat2,
                          int_nat2), # add intercept to the estimated coefficient
          ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
-         ci.up_adjust = effect + (1.96*se)) %>% 
+         ci.up_adjust = effect + (1.96*se),
+         duh = "yes") %>% 
   left_join(nat_n, by = "nat_bin")
 
 # Primary producer effect sizes
@@ -441,27 +450,33 @@ pp_effect_sum2 <- coef(summary(model_full_lat)) %>%
          effect = ifelse(pp_group != "Algae", estimate + int_pp2,
                          int_pp2), # add intercept to the estimated coefficient
          ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
-         ci.up_adjust = effect + (1.96*se)) %>% 
+         ci.up_adjust = effect + (1.96*se),
+         duh = "yes") %>% 
   left_join(pp_n, by = "pp_group")
 
-# Labels
+
+# Create the plots
 lat_labs <- c("Absolute latitude")
-lat_plot <- effect_plot(lat_effect_sum, ci.lb, ci.ub, rowname, pal_sm[3], lat_labs, back_n_labs) +
+
+lat_plot <- effect_plot(lat_effect_sum, ci.lb, ci.ub, rowname, pal_star[1], lat_labs, back_n_labs) +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank())
 
-nat_plot2 <- effect_plot(nat_effect_sum2, ci.lb_adjust,ci.up_adjust, nat_bin, rev(pal_star), nat_labs, nat_n_labs) +
+nat_plot2 <- effect_plot(nat_effect_sum2, ci.lb_adjust,ci.up_adjust, duh, pal_star[2], nat_labs, nat_n_labs) +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank()) 
 
-pp_plot2 <- effect_plot(pp_effect_sum2, ci.lb_adjust, ci.up_adjust, pp_group, rev(pal_star), pp_labs, pp_n_labs) +
-  xlab("Effect Size")
+pp_plot2 <- effect_plot(pp_effect_sum2, ci.lb_adjust, ci.up_adjust, duh, pal_star[3], pp_labs, pp_n_labs) +
+  xlab("Effect Size") +
+  scale_x_continuous(limits = c(-0.5, 2),
+                     labels = ~paste(., round((10^.), digits = 1), sep = "\n"),
+                     name = "Effect size (log scale)\nEffect Size (response ratio)")
 
 # Lat effect size plot ------
 lat_plot + nat_plot2 + pp_plot2 + 
-  plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null"))) + plot_annotation(tag_levels =  "A")
+  plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
-#ggsave("Output/Pub_figs/lat_effect_size_mod.png", device = "png",
+#ggsave("Output/Pub_figs/lat_effect_size_mod2.png", device = "png",
 #       height = 9, width = 16, dpi = 400)
 
 # Temperature effect size
@@ -482,7 +497,8 @@ nat_effect_sum3 <- coef(summary(model_full_temp)) %>%
          effect = ifelse(nat_bin != "Field: unstocked", estimate + int_nat3,
                          int_nat3), # add intercept to the estimated coefficient
          ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
-         ci.up_adjust = effect + (1.96*se)) %>% 
+         ci.up_adjust = effect + (1.96*se),
+         duh = "yes") %>% 
   left_join(nat_n, by = "nat_bin")
 
 # Primary producer effect sizes
@@ -495,27 +511,32 @@ pp_effect_sum3 <- coef(summary(model_full_temp)) %>%
          effect = ifelse(pp_group != "Algae", estimate + int_pp3,
                          int_pp3), # add intercept to the estimated coefficient
          ci.lb_adjust = effect - (1.96*se), #adjust the CI based on the new estimate
-         ci.up_adjust = effect + (1.96*se)) %>% 
+         ci.up_adjust = effect + (1.96*se),
+         duh = "yes") %>% 
   left_join(pp_n, by = "pp_group")
 
-# Labels
+# Create the plots
 temp_labs <- c("Temperature")
-temp_plot <- effect_plot(temp_effect_sum, ci.lb, ci.ub, rowname, pal_sm[3], temp_labs, back_n_labs) +
+
+temp_plot <- effect_plot(temp_effect_sum, ci.lb, ci.ub, rowname, pal_star[1], temp_labs, back_n_labs) +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank())
 
-nat_plot3 <- effect_plot(nat_effect_sum3, ci.lb_adjust,ci.up_adjust, nat_bin, rev(pal_star), nat_labs, nat_n_labs) +
+nat_plot3 <- effect_plot(nat_effect_sum3, ci.lb_adjust,ci.up_adjust, duh, pal_star[2], nat_labs, nat_n_labs) +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank()) 
 
-pp_plot3 <- effect_plot(pp_effect_sum3, ci.lb_adjust, ci.up_adjust, pp_group, rev(pal_star), pp_labs, pp_n_labs) +
-  xlab("Effect Size")
+pp_plot3 <- effect_plot(pp_effect_sum3, ci.lb_adjust, ci.up_adjust, duh, pal_star[3], pp_labs, pp_n_labs) +
+  xlab("Effect Size") +
+  scale_x_continuous(limits = c(-0.5, 2),
+                     labels = ~paste(., round((10^.), digits = 1), sep = "\n"),
+                     name = "Effect size (log scale)\nEffect Size (response ratio)")
 
 # Temp effect size plot ------
 temp_plot + nat_plot3 + pp_plot3 + 
-  plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null"))) + plot_annotation(tag_levels =  "A")
+  plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
-#ggsave("Output/Pub_figs/temp_effect_size_mod.png", device = "png",
+#ggsave("Output/Pub_figs/temp_effect_size_mod2.png", device = "png",
 #       height = 9, width = 16, dpi = 400)
 
 # Consumers vs pp vs lat -----
@@ -527,17 +548,14 @@ pal_ew <- c("#00496f", "#0f85a0", "#ed8b00", "#dd4124")
 set.seed(1234) # so things stop jumping around!
 
 meta_data %>% 
-  mutate(pp_taxa = factor(pp_taxa,
-          levels = rev(c("Co", "En", "P", "CA", "FA", "S", "O")))) %>%
   filter(climate != "Subtropics") %>%
   rbind(meta_data %>% filter(climate == "Subtropics")) %>%
-  ggplot(aes(c_group, pp_taxa, colour = climate, fill = climate, pch = nat_bin)) +
+  ggplot(aes(c_group, pp_groupz, colour = climate, fill = climate, pch = nat_bin)) +
   geom_jitter(size = 6, alpha = 0.3, width = 0.35, height = 0.35) +
   theme_white() +
   labs(x = "Consumer taxa", y = "Primary producer taxa", colour = "Climate",
        pch = "Experiment", fill = "Climate") +
-  theme(axis.text.x = element_text(angle = 30)) +
-  scale_y_discrete(labels = c("Mangrove", "Seagrass", "Fleshy Algae", "Calcareous algae", "Phytoplankton", "Endosymbiont", "Coral")) +
+  theme(axis.text.x = element_text(angle = 30))+
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 18)) +
   scale_colour_manual(values = rev(pal_ew)) +
@@ -548,7 +566,7 @@ meta_data %>%
 #ggsave("Output/Pub_figs/taxa_region.png", device = "png",
 #       height = 9, width = 16, dpi = 400)
 
-# Tables ------
+# Tables/summary stats ------
 
 # Let's make a table of the different pp responses! -----
 # OK SO what I think I want is twofold
@@ -567,6 +585,11 @@ measured <- meta_data %>%
   filter(response == "width") %>%
   select(response, measured, growth_rate, pp_taxa, comments)
 
+# how many papers looked at growth vs not
+growth <- meta_data %>%
+  group_by(growth_rate) %>%
+  summarise(n = n())
+  
 # Which metrics were used to measure growth rate?
 growth_metrics <- meta_data %>%
   filter(growth_rate == "Y") %>%
@@ -579,25 +602,73 @@ other_metrics <- meta_data %>%
 
 # Which species were used? -----
 pp_used <- meta_data %>%
-  count(pp_group, pp_family, pp_genus, pp_species)
+  count(pp_group, pp_family, pp_genus, pp_speces) # typo in datasheet
 
 c_used <- meta_data %>%
   count(c_group, c_family, c_genus, c_species)
 
+c_used <- meta_data %>%
+  mutate(c_activity = 
+           case_when(c_group == "Bird" | c_group == "Fish" ~ "Vertebrate",
+                     c_group == "Echinoderm" | c_group == "Cnidaria" ~ "Mobile Invert",
+                     c_group == "Mollusc" | c_group == "Sponge"  ~ "Sessile Invert")) %>%
+  count(c_activity, c_group, c_family, c_genus, c_species)
+
+cross <- meta_data %>%
+  count(pp_groupz, c_group) %>%
+  mutate(percent = n/sum(n))
+  
+# what percentage of studies fell into each category?
+# Experimental design
+nat_n2 <- nat_n %>%
+  mutate(percent = n/sum(n),
+         delta = 0.2 - percent)
+
+# PP group
+pp_n2 <- pp_n %>%
+  mutate(percent = n/sum(n))
+
+# consumers used?
+c_n <- meta_data %>%
+  mutate(c_activity = case_when(c_group == "Bird" | c_group == "Fish" ~ "Vertebrate",
+                                c_group == "Echinoderm" | c_group == "Cnidaria" ~ "Mobile Invert",
+                                c_group == "Mollusc" | c_group == "Sponge"  ~ "Sessile Invert")) %>%
+  group_by(c_activity) %>%
+  summarise(n = n()) %>%
+  mutate(percent = n/sum(n))   
+# one mobile invert should be a sessile
+# And one sessile should be mobile
+# So if evens out! No prob!
+
+
+# Abs lat
+lat_n <- meta_data %>%
+  distinct(paper_num, .keep_all = TRUE) %>%
+  count(climate)%>%
+  mutate(percent = n/sum(n))
+
+#plot distribution of latitude
+meta_data %>%
+  distinct(paper_num, .keep_all = TRUE) %>%
+  mutate(dummy = 1) %>%
+  ggplot(aes(abs_lat, dummy)) +
+  geom_point()
+
 # Which papers did I get background nut or temp proxies for? ----
 bn_sum <- meta_data %>%
   group_by(nutrient_levels) %>%
-  summarise(background_nut = mean(background_nut))
+  summarise(background_nut = mean(background_nut_umolL))
 
 # Which papers did I estimate bn for?
-meta_proxy <- meta_data %>%
-  filter(is.na(nutrient_estimate)) %>%
-  select(author, paper_num, nutrient_levels, year_of_study, season, background_nut, comments) %>%
+bn_proxy <- meta_data %>%
+  filter(bn_proxy == "proxy") %>%
+  select(author, paper_num, nutrient_levels, year_of_study, season, bn_proxy_date, bn_proxy_dist, background_nut_umolL, comments) %>%
   distinct(paper_num, .keep_all = TRUE)
+# Ok so I proxied 19 papers
 
-meta_proxy <- meta_data %>%
-  filter(is.na(temp)) %>%
-  select(author, paper_num, year_of_study, season, temp, comments) %>%
+temp_proxy <- meta_data %>%
+  filter(temp_proxy == "proxy") %>%
+  select(author, paper_num, lab_field, year_of_study, season, temp_proxy_date, temp_proxy_dist_km, temp, comments) %>%
   distinct(paper_num, .keep_all = TRUE)
 
 lat_long <- meta_data %>%
@@ -620,7 +691,7 @@ funnel.rma(model_null)
 # A bit of a right skew
 
 fsn(yi = yi, vi = vi, data = meta_data, type="Rosenthal") #file drawer analysis (missing studies have an effect size = 0)
-# Fail-safe N: 42,894
+# Fail-safe N: 50,340
 # That seems like quite a large number?????
 
 # Check for influential studies? ------
@@ -642,9 +713,9 @@ max_obs <- meta_data %>%
 
 hist(max_obs$n_obs)
 
-sum(max_obs$n_obs) # 170
-# so 10% of that would be 17 observations per paper
-# so that would mean that paper # 17 and #23 and #29 have just barely too many
+sum(max_obs$n_obs) # 178
+# so 10% of that would be 18 observations per paper
+# so that would mean that paper # 17 and #29 have just barely too many
 
 # Ok so let's remove those papers one at a time and rerun the stats! let's just use the one model bc fuck that
 
@@ -700,21 +771,25 @@ model_full_lat_drop <- rma.mv(yi = yi,
 summary(model_full_lat_drop)
 
 # Original model output: 
+# Test for Residual Heterogeneity:
+# QE(df = 171) = 2964.3669, p-val < .0001
+
 # Test of Moderators (coefficients 2:9):
-#   F(df1 = 8, df2 = 163) = 1.7103, p-val = 0.0995
-
+#   F(df1 = 8, df2 = 171) = 1.2423, p-val = 0.2773
+# 
 # Model Results:
-#                         estimate  se       tval   df    pval    ci.lb    ci.ub 
-# intrcpt                  0.5936  0.1608   3.6922  163  0.0003   0.2761   0.9110  *** 
-# lat_stand                0.0151  0.0784   0.1919  163  0.8480  -0.1398   0.1699      
-# natural2                -0.2354  0.2317  -1.0161  163  0.3111  -0.6930   0.2221      
-# natural3                 0.3407  0.2191   1.5548  163  0.1219  -0.0920   0.7735      
-# natural4                 0.5877  0.3145   1.8688  163  0.0634  -0.0333   1.2087    . 
-# natural5                 0.1651  0.2037   0.8107  163  0.4187  -0.2371   0.5673      
-# pp_groupCoral           -0.2233  0.2134  -1.0463  163  0.2970  -0.6448   0.1981      
-# pp_groupPhytoplankton   -0.5246  0.2443  -2.1472  163  0.0333  -1.0070  -0.0422    * 
-# pp_groupPlants          -0.5219  0.1999  -2.6113  163  0.0099  -0.9166  -0.1273   ** 
-
+#   
+#                         estimate      se     tval   df    pval    ci.lb   ci.ub 
+# intrcpt                  0.5126  0.1547   3.3137  171  0.0011   0.2072  0.8179  ** 
+# lat_stand               -0.0156  0.0750  -0.2074  171  0.8359  -0.1636  0.1325     
+# natural2                -0.0751  0.2264  -0.3318  171  0.7405  -0.5220  0.3718     
+# natural3                 0.2667  0.2125   1.2552  171  0.2111  -0.1527  0.6862     
+# natural4                 0.6122  0.3103   1.9728  171  0.0501  -0.0003  1.2248   . 
+# natural5                 0.1135  0.1980   0.5733  171  0.5672  -0.2773  0.5043     
+# pp_groupCoral           -0.2395  0.1971  -1.2151  171  0.2260  -0.6287  0.1496     
+# pp_groupPhytoplankton   -0.3803  0.2254  -1.6867  171  0.0935  -0.8253  0.0648   . 
+# pp_groupPlants          -0.3673  0.1897  -1.9363  171  0.0545  -0.7418  0.0071   .  
+# 
 # Drop #17 effect of lat goes from 0.0151 to -0.0248. p-val still super high
             # basically there's no effect of lat, 0.01 and -0.02 are reallyyyy straddling 0
 # Drop #23 nothing happens
@@ -735,19 +810,20 @@ summary(model_full_back_drop)
 
 # Original model output: 
 # Test of Moderators (coefficients 2:9):
-#   F(df1 = 8, df2 = 163) = 2.1250, p-val = 0.0362
-
+# F(df1 = 8, df2 = 171) = 1.4532, p-val = 0.1778
+# 
 # Model Results:
-#                         estimate     se     tval   df    pval    ci.lb    ci.ub 
-# intrcpt                  0.5881  0.1569   3.7477  163  0.0002   0.2782   0.8980  *** 
-# background_nut_stand     0.1274  0.0739   1.7238  163  0.0866  -0.0185   0.2733    . 
-# natural2                -0.2114  0.2265  -0.9333  163  0.3521  -0.6586   0.2359      
-# natural3                 0.4273  0.2128   2.0078  163  0.0463   0.0071   0.8476    * 
-# natural4                 0.6215  0.3111   1.9976  163  0.0474   0.0072   1.2358    * 
-# natural5                 0.0940  0.2029   0.4631  163  0.6439  -0.3067   0.4947      
-# pp_groupCoral           -0.1564  0.2009  -0.7788  163  0.4373  -0.5531   0.2402      
-# pp_groupPhytoplankton   -0.5010  0.2367  -2.1168  163  0.0358  -0.9683  -0.0336    * 
-# pp_groupPlants          -0.5510  0.1949  -2.8274  163  0.0053  -0.9358  -0.1662   ** 
+#   
+#                         estimate      se     tval   df    pval    ci.lb   ci.ub 
+# intrcpt                  0.4542  0.1599   2.8399  171  0.0051   0.1385  0.7699  ** 
+# background_nut_stand     0.0983  0.0725   1.3553  171  0.1771  -0.0449  0.2415     
+# natural2                -0.0884  0.2266  -0.3899  171  0.6971  -0.5357  0.3590     
+# natural3                 0.3691  0.2192   1.6833  171  0.0941  -0.0637  0.8018   . 
+# natural4                 0.6605  0.3111   2.1233  171  0.0352   0.0465  1.2745   * 
+# natural5                 0.1307  0.2003   0.6528  171  0.5148  -0.2646  0.5260     
+# pp_groupCoral           -0.1168  0.1975  -0.5914  171  0.5551  -0.5067  0.2731     
+# pp_groupPhytoplankton   -0.3669  0.2265  -1.6195  171  0.1072  -0.8140  0.0803     
+# pp_groupPlants          -0.3467  0.1906  -1.8193  171  0.0706  -0.7229  0.0295   . 
 
 # Dropping #17 natural2 coefficient goes from -0.2114 to 0.3155, nothing else changes
 # Dropping #23 natural5 coefficient goes from 0.0940 to -0.0079, nothing else changes
@@ -770,45 +846,22 @@ summary(model_full_temp_drop)
 
 # Original model output: 
 #Test of Moderators (coefficients 2:9):
-#  F(df1 = 8, df2 = 163) = 1.7926, p-val = 0.0819
-
-#Model Results:
-#                        estimate    se     tval   df    pval    ci.lb    ci.ub 
-#intrcpt                  0.5804  0.1606   3.6134  163  0.0004   0.2632   0.8976  *** 
-#temp_stand              -0.0554  0.0721  -0.7681  163  0.4436  -0.1979   0.0870      
-#natural2                -0.2180  0.2294  -0.9501  163  0.3435  -0.6711   0.2351      
-#natural3                 0.3643  0.2144   1.6992  163  0.0912  -0.0590   0.7877    . 
-#natural4                 0.6081  0.3142   1.9354  163  0.0547  -0.0123   1.2285    . 
-#natural5                 0.1591  0.2021   0.7873  163  0.4323  -0.2399   0.5581      
-#pp_groupCoral           -0.1873  0.2089  -0.8968  163  0.3711  -0.5998   0.2251      
-#pp_groupPhytoplankton   -0.5221  0.2402  -2.1738  163  0.0312  -0.9963  -0.0478    * 
-#pp_groupPlants          -0.5218  0.1967  -2.6520  163  0.0088  -0.9103  -0.1333   ** 
+# F(df1 = 8, df2 = 171) = 1.3100, p-val = 0.2414
+# 
+# Model Results:
+#   
+#                         estimate      se     tval   df    pval    ci.lb   ci.ub 
+# intrcpt                  0.4898  0.1551   3.1577  171  0.0019   0.1836  0.7960  ** 
+# temp_stand              -0.0493  0.0697  -0.7072  171  0.4804  -0.1869  0.0883     
+# natural2                -0.0673  0.2259  -0.2979  171  0.7661  -0.5131  0.3785     
+# natural3                 0.3069  0.2088   1.4701  171  0.1434  -0.1052  0.7190     
+# natural4                 0.6428  0.3101   2.0731  171  0.0397   0.0308  1.2548   * 
+# natural5                 0.1082  0.1968   0.5497  171  0.5833  -0.2803  0.4966     
+# pp_groupCoral           -0.1725  0.1937  -0.8907  171  0.3743  -0.5549  0.2098     
+# pp_groupPhytoplankton   -0.3836  0.2228  -1.7212  171  0.0870  -0.8234  0.0563   . 
+# pp_groupPlants          -0.3699  0.1884  -1.9630  171  0.0513  -0.7419  0.0021   . 
 
 # Dropping #17 natural2 coefficient goes from -0.2180 to 0.3455
      # Coral coefficient goes from -0.1873 to -0.4487 and p-val goes from 0.3711 to 0.0596
 # Dropping #23 doesn't change anything
 # Dropping #29 doesn't change anything
-
-# Summary statistics! -----
-# what percentage of studies fell into each category?
-# Experimental design
-nat_n2 <- nat_n %>%
-  mutate(percent = n/sum(n),
-         delta = 0.2 - percent)
-
-# PP group
-pp_n2 <- pp_n %>%
-  mutate(percent = n/sum(n))
-
-# Abs lat
-lat_n <- meta_data %>%
-  distinct(paper_num, .keep_all = TRUE) %>%
-  count(climate)%>%
-  mutate(percent = n/sum(n))
-
-#plot distribution of latitude
-meta_data %>%
-  distinct(paper_num, .keep_all = TRUE) %>%
-  mutate(dummy = 1) %>%
-  ggplot(aes(abs_lat, dummy)) +
-  geom_point()
