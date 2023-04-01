@@ -411,8 +411,8 @@ pp_plot <- effect_plot(pp_effect_sum, ci.lb_adjust, ci.up_adjust, duh, pal_star[
 back_nut_plot + nat_plot + pp_plot + 
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
-#ggsave("Output/Pub_figs/bn_effect_size_mod3.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
+ggsave("Output/Pub_figs/bn_effect_size_mod3.png", device = "png",
+       height = 9, width = 16, dpi = 400)
 
 
 # Graph the other models! --------
@@ -476,8 +476,8 @@ pp_plot2 <- effect_plot(pp_effect_sum2, ci.lb_adjust, ci.up_adjust, duh, pal_sta
 lat_plot + nat_plot2 + pp_plot2 + 
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
-#ggsave("Output/Pub_figs/lat_effect_size_mod2.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
+ggsave("Output/Pub_figs/lat_effect_size_mod2.png", device = "png",
+       height = 9, width = 16, dpi = 400)
 
 # Temperature effect size
 temp_effect_sum <- coef(summary(model_full_temp)) %>%
@@ -675,7 +675,7 @@ lat_long <- meta_data %>%
   distinct(paper_num, lat_dec, long_dec)
 
 lat_long2 <- meta_data %>%
-  select(lat_dec, long_dec)
+  select(lat_dec, long_dec, climate)
 
 write_csv(lat_long2, "Output/Data/lat_long2.csv")
 
