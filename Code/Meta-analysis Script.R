@@ -395,21 +395,24 @@ pp_n_labs <- c("n = 27", "n = 55", "n = 53", "n = 45")
 # plot each moderator using the function I created (plot_themes)
 back_nut_plot <- effect_plot(back_nut_effect_sum, ci.lb, ci.ub, rowname, pal_star[1], cont_labs, back_n_labs) +
   theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank())
+        axis.text.x=element_blank())+
+  theme_black()
 
 nat_plot <- effect_plot(nat_effect_sum, ci.lb_adjust,ci.up_adjust, duh, pal_star[2], nat_labs, nat_n_labs) +
   theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank()) 
+        axis.text.x=element_blank()) +
+  theme_black()
 
 pp_plot <- effect_plot(pp_effect_sum, ci.lb_adjust, ci.up_adjust, duh, pal_star[3], pp_labs, pp_n_labs) +
   xlab("Effect Size") +
   scale_x_continuous(limits = c(-0.5, 2),
                      labels = ~paste(., round((10^.), digits = 1), sep = "\n"),
-                     name = "Effect size (log scale)\nEffect Size (response ratio)")
+                     name = "Effect size (log scale)\nEffect Size (response ratio)")+
+  theme_black()
 
 # Effect size plot (back nut model) ------
 back_nut_plot + nat_plot + pp_plot + 
-  plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
+  plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null"))) 
 
 ggsave("Output/Pub_figs/bn_effect_size_mod3.png", device = "png",
        height = 9, width = 16, dpi = 400)
@@ -566,6 +569,27 @@ meta_data %>%
 #ggsave("Output/Pub_figs/taxa_region.png", device = "png",
 #       height = 9, width = 16, dpi = 400)
 
+# Plot just cont effects 
+# GRAPH ALL CONT EFFECTS
+cont_effect_sum <- rbind(back_nut_effect_sum, temp_effect_sum, lat_effect_sum)
+# these effect tables are generated above when I'm plotting each fig by itself
+
+# just a heinous plot
+ggplot(cont_effect_sum, aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
+  labs(x = "Standardized effect size", y = " ")  +
+  theme_black() +
+  theme(legend.position = "none") +
+  scale_y_discrete(labels = cont_labs) +
+  scale_colour_manual(values = rev(pal_sm)) +
+  facet_wrap(~ rowname, nrow = 3, labeller = labeller(rowname = cont_labs)) + 
+  theme(panel.spacing = unit(2, "lines"))
+  
+ggsave("Output/Pub_figs/cont_effects.png", device = "png",
+     height = 9, width = 16, dpi = 400)
+  
 # Tables/summary stats ------
 
 # Let's make a table of the different pp responses! -----

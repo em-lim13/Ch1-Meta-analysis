@@ -151,23 +151,6 @@ ggplot(nat_effect_sum, aes(y = dummy, x = effect, xmin = ci.lb_adjust, xmax = ci
   theme(legend.position = "none") +
   xlim(c(-1, 2))
 
-# GRAPH ALL CONT EFFECTS
-
-ggplot(cont_effect_sum, aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="black", linetype="dashed") +
-  labs(x = "Standardized effect size", y = " ")  +
-  theme_white()+ 
-  theme(legend.position = "none") +
-  scale_y_discrete(labels = cont_labs) +
-  scale_colour_manual(values = rev(pal_sm)) +
-  facet_wrap(~ rowname, nrow = 3, labeller = labeller(rowname = cont_labs))
-
-# ggsave("Output/Pub_figs/cont_effects.png", device = "png",
-#      height = 9, width = 16, dpi = 400)
-
-
 # Primary Producer group justification-----
 
 # Let's made a simple model with just primary producer group as a mod
