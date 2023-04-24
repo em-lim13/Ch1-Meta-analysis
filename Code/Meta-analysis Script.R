@@ -240,6 +240,7 @@ model_full_lat <- rma.mv(yi = yi,
 
 summary(model_full_lat)
 
+
 # Full model with background_nutrients
 model_full_back <- rma.mv(yi = yi,
                                 V = vi,
@@ -264,6 +265,7 @@ model_full_temp <- rma.mv(yi = yi,
                           test = "t")
 
 summary(model_full_temp)
+
 
 # Null model
 model_null <- rma.mv(yi = yi,
@@ -300,6 +302,8 @@ AIC_tab <- AIC(model_full_lat, model_full_back, model_full_temp, model_null) %>%
 
 aic_table(model_full_lat, model_full_back, model_full_temp, model_null, model_cat)
 # So the model with background nutrients is the best model according to AIC but there's still moderate support for all three of lat, temp, and background nutrients
+
+# The SMD models have almost double the AIC value of the ROM models
 
 # Present the coefficient plot of the best model, but include the other two in the supp
 # And we still get an estimate for the effect size for everything
@@ -414,8 +418,8 @@ pp_plot <- effect_plot(pp_effect_sum, ci.lb_adjust, ci.up_adjust, duh, pal_star[
 back_nut_plot + nat_plot + pp_plot + 
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null"))) 
 
-ggsave("Output/Pub_figs/bn_effect_size_mod3.png", device = "png",
-       height = 9, width = 16, dpi = 400)
+#ggsave("Output/Pub_figs/bn_effect_size_mod3.png", device = "png",
+#       height = 9, width = 16, dpi = 400)
 
 
 # Graph the other models! --------
