@@ -14,6 +14,11 @@ library(esc)
 library(RColorBrewer)
 library(patchwork)
 
+# Packages for map
+library(sf)
+library(rnaturalearth) # another simple world map?
+
+
 source(file = "Code/Plot_themes.R")
 theme_set(theme_classic())
 
@@ -546,35 +551,92 @@ temp_plot + nat_plot3 + pp_plot3 +
 #ggsave("Output/Pub_figs/temp_effect_size_mod2.png", device = "png",
 #       height = 9, width = 16, dpi = 600)
 
-# Consumers vs pp vs lat -----
-pal <- pnw_palette("Bay", 6)
-pal2 <- pnw_palette("Bay", 4)
-pal3 <- pnw_palette("Bay", 5)
+# Figure 2 -----
+
+# Figure 2a is the study site map
+lat_long <- meta_data %>%
+  distinct(paper_num, lat_dec, long_dec, climate) %>%
+  as.data.frame() %>%
+  mutate(lat = lat_dec,
+         long = long_dec,
+         climate = factor(climate, levels = c("Polar", "Temperate", "Subtropics", "Tropics"))) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec")) %>%
+  st_set_crs(4326)
+
+# Transform to a crs that uses meters as the distance
+coords_jitter <- meta_coords %>%
+  st_transform(3358) %>%
+  st_jitter(nc_points, amount = 150000) %>%
+  st_transform(4326)
+
+# Load simple world map from package "rnaturalearth"
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# Good sites for plotting help
+# https://r-spatial.org/r/2018/10/25/ggplot2-sf.html
+
+# https://mhallwor.github.io/_pages/Tidyverse_intro
+
+# Define palettes
+blue <- paste("#b9d1df", sep="")
 pal_ew <- c("#00496f", "#0f85a0", "#ed8b00", "#dd4124")
 
+# set seed
+set.seed(987654321)
+
+#Fig2a <- 
+ggplot() +
+  geom_sf(data = world, fill = "white", colour = blue) +
+  geom_sf(data = coords_jitter, 
+          aes(fill = climate), 
+          colour = "black", pch = 21, size = 3, alpha = 0.5) +
+  theme_bw() +
+  theme(panel.background = element_rect(fill = blue),
+        axis.text = element_text(size = 12, colour = "black"),
+        axis.title = element_text(size = 13, colour = "black"),
+        legend.title = element_text(size = 12, colour = "black"),
+        legend.text = element_text(size = 11, colour = "black")) +
+  xlab("Longitude") + ylab("Latitude") + labs(fill = "Climate") +
+  coord_sf(expand = FALSE)+
+  scale_y_continuous(limits = c(-79, 89)) +
+  scale_x_continuous(limits = c(-180, 181)) +
+  scale_fill_manual(values = (pal_ew))
+
+#ggsave("Output/Pub_figs/meta_map.png", width = 7.08661, height = 3, dpi = 600)
+
+
+# Now make Fig 2b
+# This is the combination of animals and pp used
 set.seed(1234) # so things stop jumping around!
 
+#Fig2b <- 
 meta_data %>% 
   filter(climate != "Subtropics") %>%
   rbind(meta_data %>% filter(climate == "Subtropics")) %>%
-  mutate(climate = factor(climate, levels = c("Polar", "Temperate", "Subtropics", "Tropics"))) %>%
-  ggplot(aes(c_group, pp_groupz, colour = climate, fill = climate, pch = nat_bin)) +
-  geom_jitter(size = 3.5, alpha = 0.3, width = 0.35, height = 0.35) +
+  mutate(climate = factor(climate, 
+        levels = c("Polar", "Temperate", "Subtropics", "Tropics"))) %>%
+  ggplot() +
+  geom_jitter(aes(c_group, pp_groupz, fill = climate, pch = nat_bin),
+              size = 3.5, alpha = 0.3, width = 0.35, height = 0.35) +
   theme_classic() +
-  labs(x = "Consumer taxa", y = "Primary producer taxa", colour = "Climate",
+  labs(x = "Consumer taxa", y = "Primary producer taxa",
        pch = "Experiment", fill = "Climate") +
   theme(axis.text.x = element_text(angle = 30, hjust = 1),
         axis.text = element_text(size = 12, colour = "black"),
         axis.title = element_text(size = 13, colour = "black"),
         legend.title = element_text(size = 12, colour = "black"),
         legend.text = element_text(size = 11, colour = "black")) +
-  scale_colour_manual(values = (pal_ew)) +
   scale_fill_manual(values = (pal_ew)) +
-  scale_shape_manual(values = c(21, 22, 23, 24, 25))
-
+  scale_shape_manual(values = c(21, 22, 23, 24, 25)) +
+  guides(fill = guide_legend(override.aes = 
+                list(size = 3.5, pch = 21, alpha = 0.4)),
+         pch = guide_legend(override.aes = 
+                list(size = 3.5, colour = "black", alpha = 0.9)))
 
 #ggsave("Output/Pub_figs/taxa_region.png", device = "png",
 #       height = 4, width = 7.08661, dpi = 600)
+
+# Fig2a/Fig2b
 
 # Plot just cont effects 
 # GRAPH ALL CONT EFFECTS
@@ -701,14 +763,6 @@ temp_proxy <- meta_data %>%
   filter(temp_proxy == "proxy") %>%
   select(author, paper_num, lab_field, year_of_study, season, temp_proxy_date, temp_proxy_dist_km, temp, comments) %>%
   distinct(paper_num, .keep_all = TRUE)
-
-lat_long <- meta_data %>%
-  distinct(paper_num, lat_dec, long_dec)
-
-lat_long2 <- meta_data %>%
-  distinct(paper_num, lat_dec, long_dec, climate)
-
-#write_csv(lat_long2, "Output/Data/lat_long2.csv")
 
 
 # Independence and Bias -------
