@@ -551,9 +551,9 @@ temp_plot + nat_plot3 + pp_plot3 +
 #ggsave("Output/Pub_figs/temp_effect_size_mod2.png", device = "png",
 #       height = 9, width = 16, dpi = 600)
 
-# Figure 2 -----
+# Figure 1 -----
 
-# Figure 2a is the study site map
+# Figure 1a is the study site map
 lat_long <- meta_data %>%
   distinct(paper_num, lat_dec, long_dec, climate) %>%
   as.data.frame() %>%
@@ -584,7 +584,7 @@ pal_ew <- c("#00496f", "#0f85a0", "#ed8b00", "#dd4124")
 # set seed
 set.seed(987654321)
 
-#Fig2a <- 
+#Fig1a <- 
 ggplot() +
   geom_sf(data = world, fill = "white", colour = blue) +
   geom_sf(data = coords_jitter, 
@@ -605,11 +605,11 @@ ggplot() +
 #ggsave("Output/Pub_figs/meta_map.png", width = 7.08661, height = 3, dpi = 600)
 
 
-# Now make Fig 2b
+# Now make Fig 1b
 # This is the combination of animals and pp used
 set.seed(1234) # so things stop jumping around!
 
-#Fig2b <- 
+#Fig1b <- 
 meta_data %>% 
   filter(climate != "Subtropics") %>%
   rbind(meta_data %>% filter(climate == "Subtropics")) %>%
