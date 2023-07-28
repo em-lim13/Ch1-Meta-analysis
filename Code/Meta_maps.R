@@ -51,10 +51,7 @@ ggplot() +
   xlab("Longitude") + ylab("Latitude") +
   coord_sf(expand = FALSE)+
   scale_y_continuous(limits = c(-79, 89)) +
-  scale_x_continuous(limits = c(-180, 181)) + 
-  annotation_north_arrow()
-    
-    location = “bl”, which_north = “true”, pad_x = unit(0.75, “in”), pad_y = unit(0.5, “in”), style = north_arrow_fancy_orienteering)
+  scale_x_continuous(limits = c(-180, 181)) 
   
 
 # OLD shapefiles ----
