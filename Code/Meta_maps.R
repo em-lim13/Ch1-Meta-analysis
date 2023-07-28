@@ -11,7 +11,6 @@ library(maps)
 library(ggplot2)
 library(maptools) # wrld_simpl comes from here but is deprecated
 library(rnaturalearth) # another simple world map?
-library(ggspatial) # for scale bar + arrow
 
 # Load meta_analysis data from Meta-analysis Script
 meta_coords <- read_csv("Output/Data/lat_long2.csv") %>%
@@ -27,8 +26,6 @@ coords_jitter <- meta_coords %>%
   st_transform(3358) %>%
   st_jitter(nc_points, amount = 150000) %>%
   st_transform(4326)
-
-
 
 # Load simple world map from package "rnaturalearth"
 world <- ne_countries(scale = "medium", returnclass = "sf")
@@ -62,14 +59,18 @@ ggplot() +
           aes(fill = climate), 
           colour = "black", pch = 21, size = 3, alpha = 0.5) +
   theme_bw() +
-  theme(panel.background = element_rect(fill = blue)) +
+  theme(panel.background = element_rect(fill = blue),
+        axis.text = element_text(size = 12, colour = "black"),
+        axis.title = element_text(size = 13, colour = "black"),
+        legend.title = element_text(size = 12, colour = "black"),
+        legend.text = element_text(size = 11, colour = "black")) +
   xlab("Longitude") + ylab("Latitude") + labs(fill = "Climate") +
   coord_sf(expand = FALSE)+
   scale_y_continuous(limits = c(-79, 89)) +
   scale_x_continuous(limits = c(-180, 181)) +
   scale_fill_manual(values = (pal_ew))
 
-#ggsave("Output/Pub_figs/meta_map_jitter.png", width = 7.08661, height = 3, dpi = #600)
+ggsave("Output/Pub_figs/meta_map.png", width = 7.08661, height = 3, dpi = 600)
   
 
 # OLD shapefiles ----
