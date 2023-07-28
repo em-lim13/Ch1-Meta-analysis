@@ -419,7 +419,7 @@ back_nut_plot + nat_plot + pp_plot +
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null"))) 
 
 #ggsave("Output/Pub_figs/bn_effect_size_mod3.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
+#       height = 9, width = 16, dpi = 600)
 
 
 # Graph the other models! --------
@@ -484,7 +484,7 @@ lat_plot + nat_plot2 + pp_plot2 +
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
 #ggsave("Output/Pub_figs/lat_effect_size_mod2.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
+#       height = 9, width = 16, dpi = 600)
 
 # Temperature effect size
 temp_effect_sum <- coef(summary(model_full_temp)) %>%
@@ -544,7 +544,7 @@ temp_plot + nat_plot3 + pp_plot3 +
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
 #ggsave("Output/Pub_figs/temp_effect_size_mod2.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
+#       height = 9, width = 16, dpi = 600)
 
 # Consumers vs pp vs lat -----
 pal <- pnw_palette("Bay", 6)
@@ -557,21 +557,24 @@ set.seed(1234) # so things stop jumping around!
 meta_data %>% 
   filter(climate != "Subtropics") %>%
   rbind(meta_data %>% filter(climate == "Subtropics")) %>%
+  mutate(climate = factor(climate, levels = c("Polar", "Temperate", "Subtropics", "Tropics"))) %>%
   ggplot(aes(c_group, pp_groupz, colour = climate, fill = climate, pch = nat_bin)) +
-  geom_jitter(size = 6, alpha = 0.3, width = 0.35, height = 0.35) +
-  theme_white() +
+  geom_jitter(size = 3.5, alpha = 0.3, width = 0.35, height = 0.35) +
+  theme_classic() +
   labs(x = "Consumer taxa", y = "Primary producer taxa", colour = "Climate",
        pch = "Experiment", fill = "Climate") +
-  theme(axis.text.x = element_text(angle = 30))+
-  theme(axis.text = element_text(size = 16),
-        axis.title = element_text(size = 18)) +
-  scale_colour_manual(values = rev(pal_ew)) +
-  scale_fill_manual(values = rev(pal_ew)) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),
+        axis.text = element_text(size = 12, colour = "black"),
+        axis.title = element_text(size = 13, colour = "black"),
+        legend.title = element_text(size = 12, colour = "black"),
+        legend.text = element_text(size = 11, colour = "black")) +
+  scale_colour_manual(values = (pal_ew)) +
+  scale_fill_manual(values = (pal_ew)) +
   scale_shape_manual(values = c(21, 22, 23, 24, 25))
 
 
 #ggsave("Output/Pub_figs/taxa_region.png", device = "png",
-#       height = 9, width = 16, dpi = 400)
+#       height = 4, width = 7.08661, dpi = 600)
 
 # Plot just cont effects 
 # GRAPH ALL CONT EFFECTS
@@ -592,7 +595,7 @@ ggplot(cont_effect_sum, aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub,
   theme(panel.spacing = unit(2, "lines"))
   
 #ggsave("Output/Pub_figs/cont_effects.png", device = "png",
-#     height = 9, width = 16, dpi = 400)
+#     height = 9, width = 16, dpi = 600)
   
 # Tables/summary stats ------
 
