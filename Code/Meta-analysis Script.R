@@ -483,8 +483,8 @@ pp_plot2 <- effect_plot(pp_effect_sum2, ci.lb_adjust, ci.up_adjust, duh, pal_sta
 lat_plot + nat_plot2 + pp_plot2 + 
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
-ggsave("Output/Pub_figs/lat_effect_size_mod2.png", device = "png",
-       height = 9, width = 16, dpi = 400)
+#ggsave("Output/Pub_figs/lat_effect_size_mod2.png", device = "png",
+#       height = 9, width = 16, dpi = 400)
 
 # Temperature effect size
 temp_effect_sum <- coef(summary(model_full_temp)) %>%
@@ -591,8 +591,8 @@ ggplot(cont_effect_sum, aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub,
   facet_wrap(~ rowname, nrow = 3, labeller = labeller(rowname = cont_labs)) + 
   theme(panel.spacing = unit(2, "lines"))
   
-ggsave("Output/Pub_figs/cont_effects.png", device = "png",
-     height = 9, width = 16, dpi = 400)
+#ggsave("Output/Pub_figs/cont_effects.png", device = "png",
+#     height = 9, width = 16, dpi = 400)
   
 # Tables/summary stats ------
 
@@ -703,9 +703,9 @@ lat_long <- meta_data %>%
   distinct(paper_num, lat_dec, long_dec)
 
 lat_long2 <- meta_data %>%
-  select(lat_dec, long_dec, climate)
+  distinct(paper_num, lat_dec, long_dec, climate)
 
-write_csv(lat_long2, "Output/Data/lat_long2.csv")
+#write_csv(lat_long2, "Output/Data/lat_long2.csv")
 
 
 # Independence and Bias -------
