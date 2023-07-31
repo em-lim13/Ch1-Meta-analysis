@@ -1,6 +1,44 @@
 # Code Graveyard
 # Scraps from the meta-analysis code
 
+# Old code to see which animals are in each of the broad categories? ----
+c_used <- meta_data %>%
+  mutate(c_activity = 
+           case_when(c_group == "Bird" | c_group == "Fish" ~ "Vertebrate",
+                     c_group == "Echinoderm" | c_group == "Cnidaria" ~ "Mobile Invert",
+                     c_group == "Mollusc" | c_group == "Sponge"  ~ "Sessile Invert")) %>%
+  count(c_activity, c_group, c_family, c_genus, c_species)
+
+# Old code for making a plot of just the coeffients for each continuous mod ----
+# GRAPH ALL CONT EFFECTS
+cont_effect_sum <- rbind(back_nut_effect_sum, temp_effect_sum, lat_effect_sum)
+# these effect tables are generated above when I'm plotting each fig by itself
+
+# just a heinous plot
+ggplot(cont_effect_sum, aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
+  geom_point(size = 6) +
+  geom_errorbar(width = .5, size = 2) +
+  geom_vline(xintercept=0, color="white", linetype="dashed") +
+  labs(x = "Standardized effect size", y = " ")  +
+  theme_black() +
+  theme(legend.position = "none") +
+  scale_y_discrete(labels = cont_labs) +
+  scale_colour_manual(values = rev(pal_sm)) +
+  facet_wrap(~ rowname, nrow = 3, labeller = labeller(rowname = cont_labs)) + 
+  theme(panel.spacing = unit(2, "lines"))
+
+#ggsave("Output/Pub_figs/cont_effects.png", device = "png",
+#     height = 9, width = 16, dpi = 600)
+
+
+# Old code to calculate added nitrogen -----
+  rowwise() %>%
+  mutate(sum_all_N_treat = sum(nh4_treatment, no3_treatment, total_nitrogen_treatment, na.rm = TRUE),
+         sum_all_N_cont = sum(nh4_control, no3_control, total_nitrogen_control, na.rm = TRUE),
+         added_N = na_if((sum_all_N_treat - sum_all_N_cont), 0),
+         added_nh4 = na_if((sum(nh4_treatment, na.rm = TRUE) - sum(nh4_control, na.rm = TRUE)), 0)) %>%
+  ungroup()
+
 # Check to see if the kind of response measured matters
 meta_data2 <- meta_data %>%
   mutate(pp_metric = case_when(response == "density" |
