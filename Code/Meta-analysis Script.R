@@ -493,7 +493,7 @@ pp_plot <- effect_plot(pp_effect_sum, ci.lb_adjust, ci.up_adjust, duh, pal_star[
 back_nut_plot + nat_plot + pp_plot + 
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null"))) 
 
-#ggsave("Output/Pub_figs/bn_effect_size_mod3.png", device = "png",
+#ggsave("Output/Pub_figs/bn_effect_size_mod.png", device = "png",
 #       height = 9, width = 16, dpi = 600)
 
 
@@ -559,7 +559,7 @@ pp_plot2 <- effect_plot(pp_effect_sum2, ci.lb_adjust, ci.up_adjust, duh, pal_sta
 lat_plot + nat_plot2 + pp_plot2 + 
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
-#ggsave("Output/Pub_figs/lat_effect_size_mod2.png", device = "png",
+#ggsave("Output/Pub_figs/lat_effect_size_mod.png", device = "png",
 #       height = 9, width = 16, dpi = 600)
 
 # Temperature effect supp fig ----
@@ -619,7 +619,7 @@ pp_plot3 <- effect_plot(pp_effect_sum3, ci.lb_adjust, ci.up_adjust, duh, pal_sta
 temp_plot + nat_plot3 + pp_plot3 + 
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
-#ggsave("Output/Pub_figs/temp_effect_size_mod2.png", device = "png",
+#ggsave("Output/Pub_figs/temp_effect_size_mod.png", device = "png",
 #       height = 9, width = 16, dpi = 600)
   
 # Tables ------
