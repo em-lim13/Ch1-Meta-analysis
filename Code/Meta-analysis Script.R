@@ -57,7 +57,24 @@ meta_full <- read_csv("Output/Data/april_meta2023.csv") %>%
                              natural == 3 ~ "Field: animals stocked",
                              natural == 4 ~ "Field: both stocked",
                              natural == 5 ~ "Mesocosm"),
-         nat_bin = factor(nat_bin, levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm"))) 
+         nat_bin = factor(nat_bin, levels = c("Field: unstocked", "Field: PP stocked", "Field: animals stocked", "Field: both stocked", "Mesocosm")),
+         pp_group = as.factor(case_when(
+           pp_taxa == "CA" | pp_taxa == "FA" ~ 'Algae',
+           pp_taxa == "En" | pp_taxa == "Co" ~ 'Coral',
+           pp_taxa == "P" ~ 'Phytoplankton',
+           pp_taxa == "S" ~ "Plants",
+           pp_phyla == "Tracheophyta" ~ "Plants",
+           pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")), # the one anemone
+         pp_groupz = as.factor(case_when(
+           pp_taxa == "CA"  ~ 'Calcareous algae',
+           pp_taxa == "FA" ~ 'Fleshy algae',
+           pp_taxa == "En" ~ "Endosymbiont",
+           pp_taxa == "Co" ~ 'Coral',
+           pp_taxa == "P" ~ 'Phytoplankton',
+           pp_taxa == "S" ~ "Seagrass",
+           pp_taxa == "O" & pp_phyla == "Tracheophyta" ~ "Mangrove+cordgrass",
+           pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")),
+         pp_groupz = factor(pp_groupz, levels = rev(c("Coral", "Endosymbiont", "Phytoplankton", "Calcareous algae", "Fleshy algae", "Seagrass", "Mangrove+cordgrass")))) 
 
 # using 23.45 as the cut off bc that's between the cancer and capricorn?
 # Another paper set 23.5 - 23.5, and set temperate as 30-40
@@ -77,33 +94,9 @@ meta_calc <- meta_no_neg %>%
   escalc(measure = "ROM", data = meta_no_neg, 
        m1i = mean_treatment, sd1i = sd_treatment, # log(treatment/control)
        m2i = mean_control, sd2i = sd_control,
-       n1i = treatment_n, n2i = control_n) %>%
-  rowwise() %>%
-  mutate(sum_all_N_treat = sum(nh4_treatment, no3_treatment, total_nitrogen_treatment, na.rm = TRUE),
-         sum_all_N_cont = sum(nh4_control, no3_control, total_nitrogen_control, na.rm = TRUE),
-         added_N = na_if((sum_all_N_treat - sum_all_N_cont), 0),
-         added_nh4 = na_if((sum(nh4_treatment, na.rm = TRUE) - sum(nh4_control, na.rm = TRUE)), 0)) %>%
-  ungroup() %>%
-  mutate(pp_group = as.factor(case_when(
-          pp_taxa == "CA" | pp_taxa == "FA" ~ 'Algae',
-          pp_taxa == "En" | pp_taxa == "Co" ~ 'Coral',
-          pp_taxa == "P" ~ 'Phytoplankton',
-          pp_taxa == "S" ~ "Plants",
-          pp_phyla == "Tracheophyta" ~ "Plants",
-          pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")), # the one anemone
-         pp_groupz = as.factor(case_when(
-           pp_taxa == "CA"  ~ 'Calcareous algae',
-           pp_taxa == "FA" ~ 'Fleshy algae',
-           pp_taxa == "En" ~ "Endosymbiont",
-           pp_taxa == "Co" ~ 'Coral',
-           pp_taxa == "P" ~ 'Phytoplankton',
-           pp_taxa == "S" ~ "Seagrass",
-           pp_taxa == "O" & pp_phyla == "Tracheophyta" ~ "Mangrove+cordgrass",
-           pp_taxa == "O" & pp_phyla == "Cnidaria" ~ "Coral")),
-         pp_groupz = factor(pp_groupz, levels = rev(c("Coral", "Endosymbiont", "Phytoplankton", "Calcareous algae", "Fleshy algae", "Seagrass", "Mangrove+cordgrass"))),
-         lat_stand = base::scale(abs_lat),
+       n1i = treatment_n, n2i = control_n)  %>%
+  mutate(lat_stand = base::scale(abs_lat),
          background_nut_stand = scale(background_nut_umolL),
-         added_N_stand = scale(added_N),
          temp_stand = scale(temp))
 
 # Want all models to use the same data!
@@ -305,7 +298,6 @@ AIC_tab <- AIC(model_full_lat, model_full_back, model_full_temp, model_null) %>%
          sum = sum(likelihood),
          AICw = likelihood/sum)
 
-aic_table(model_full_lat, model_full_back, model_full_temp, model_null, model_cat)
 # So the model with background nutrients is the best model according to AIC but there's still moderate support for all three of lat, temp, and background nutrients
 
 # The SMD models have almost double the AIC value of the ROM models
@@ -321,21 +313,99 @@ aic_table(model_full_lat, model_full_back, model_full_temp, model_null, model_ca
 
 
 # Figures --------
-
-# fuck around and see what those new slattery papers did
-meta_data %>%
-  mutate(slat_new = ifelse(paper_num == 17 & obs_num > 15, "new_slat", "not")) %>%
-ggplot(aes(background_nut_umolL, yi, colour = slat_new)) +
-  geom_point()
-
 # Maybe some help here?
 # https://www.metafor-project.org/doku.php/tips:meta_regression_with_log_rr
 
-# Define a palette
+# Define palettes
+blue <- paste("#b9d1df", sep="")
+pal_ew <- c("#00496f", "#0f85a0", "#ed8b00", "#dd4124")
 pal_star <- pnw_palette("Starfish", 5)
 pal_sm <- pnw_palette("Starfish", 3)
 
-# Calculations for plot effect sizes -------
+# Figure 1 -----
+
+# Figure 1a is the study site map
+lat_long <- meta_data %>%
+  distinct(paper_num, lat_dec, long_dec, climate) %>%
+  as.data.frame() %>%
+  mutate(lat = lat_dec,
+         long = long_dec,
+         climate = factor(climate, levels = c("Polar", "Temperate", "Subtropics", "Tropics"))) %>%
+  st_as_sf(coords = c("long_dec", "lat_dec")) %>%
+  st_set_crs(4326)
+
+# Transform to a crs that uses meters as the distance
+coords_jitter <- meta_coords %>%
+  st_transform(3358) %>%
+  st_jitter(nc_points, amount = 150000) %>%
+  st_transform(4326)
+
+# Load simple world map from package "rnaturalearth"
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# Good sites for plotting help
+# https://r-spatial.org/r/2018/10/25/ggplot2-sf.html
+
+# https://mhallwor.github.io/_pages/Tidyverse_intro
+
+# set seed
+set.seed(987654321)
+
+#Fig1a <- 
+ggplot() +
+  geom_sf(data = world, fill = "white", colour = blue) +
+  geom_sf(data = coords_jitter, 
+          aes(fill = climate), 
+          colour = "black", pch = 21, size = 3, alpha = 0.5) +
+  theme_bw() +
+  theme(panel.background = element_rect(fill = blue),
+        axis.text = element_text(size = 12, colour = "black"),
+        axis.title = element_text(size = 13, colour = "black"),
+        legend.title = element_text(size = 12, colour = "black"),
+        legend.text = element_text(size = 11, colour = "black")) +
+  xlab("Longitude") + ylab("Latitude") + labs(fill = "Climate") +
+  coord_sf(expand = FALSE)+
+  scale_y_continuous(limits = c(-79, 89)) +
+  scale_x_continuous(limits = c(-180, 181)) +
+  scale_fill_manual(values = (pal_ew))
+
+#ggsave("Output/Pub_figs/meta_map.png", width = 7.08661, height = 3, dpi = 600)
+
+
+# Now make Fig 1b
+# This is the combination of animals and pp used
+set.seed(1234) # so things stop jumping around!
+
+#Fig1b <- 
+meta_data %>% 
+  filter(climate != "Subtropics") %>%
+  rbind(meta_data %>% filter(climate == "Subtropics")) %>%
+  mutate(climate = factor(climate, 
+                          levels = c("Polar", "Temperate", "Subtropics", "Tropics"))) %>%
+  ggplot() +
+  geom_jitter(aes(c_group, pp_groupz, fill = climate, pch = nat_bin),
+              size = 3.5, alpha = 0.3, width = 0.35, height = 0.35) +
+  theme_classic() +
+  labs(x = "Consumer taxa", y = "Primary producer taxa",
+       pch = "Experiment", fill = "Climate") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),
+        axis.text = element_text(size = 12, colour = "black"),
+        axis.title = element_text(size = 13, colour = "black"),
+        legend.title = element_text(size = 12, colour = "black"),
+        legend.text = element_text(size = 11, colour = "black")) +
+  scale_fill_manual(values = (pal_ew)) +
+  scale_shape_manual(values = c(21, 22, 23, 24, 25)) +
+  guides(fill = guide_legend(override.aes = 
+                               list(size = 3.5, pch = 21, alpha = 0.4)),
+         pch = guide_legend(override.aes = 
+                              list(size = 3.5, colour = "black", alpha = 0.9)))
+
+#ggsave("Output/Pub_figs/taxa_region.png", device = "png",
+#       height = 4, width = 7.08661, dpi = 600)
+
+# Fig2a/Fig2b
+
+# Fig. 2 calculations -------
 # Background nutrients
 # Pull coefficient estimates so I can graph them
 back_nut_effect_sum <- coef(summary(model_full_back)) %>%
@@ -348,7 +418,9 @@ back_nut_effect_sum <- coef(summary(model_full_back)) %>%
 nat_n <- meta_data %>%
   group_by(nat_bin) %>%
   summarise(n = n()) %>% # How many papers in each bin?
-  mutate(dummy = 1:5)
+  mutate(dummy = 1:5,
+         percent = n/sum(n),
+         delta = 0.2 - percent)
 
 # Just the intercept to adjust other estimates
 intercept_nat <- coef(summary(model_full_back))[1,1] # extract the intercept
@@ -374,7 +446,8 @@ nat_effect_sum <- coef(summary(model_full_back)) %>%
 pp_n <- meta_data %>%
   group_by(pp_group) %>%
   summarise(n = n()) %>% # How many papers in each bin?
-  mutate(dummy = 1:4)
+  mutate(dummy = 1:4,
+         percent = n/sum(n))
 
 # Just the intercept to adjust other estimates
 intercept_pp <- coef(summary(model_full_back))[1,1] # extract the intercept
@@ -404,22 +477,19 @@ pp_n_labs <- c("n = 27", "n = 55", "n = 53", "n = 45")
 # plot each moderator using the function I created (plot_themes)
 back_nut_plot <- effect_plot(back_nut_effect_sum, ci.lb, ci.ub, rowname, pal_star[1], cont_labs, back_n_labs) +
   theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank())+
-  theme_black()
+        axis.text.x=element_blank())
 
 nat_plot <- effect_plot(nat_effect_sum, ci.lb_adjust,ci.up_adjust, duh, pal_star[2], nat_labs, nat_n_labs) +
   theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank()) +
-  theme_black()
+        axis.text.x=element_blank())
 
 pp_plot <- effect_plot(pp_effect_sum, ci.lb_adjust, ci.up_adjust, duh, pal_star[3], pp_labs, pp_n_labs) +
   xlab("Effect Size") +
   scale_x_continuous(limits = c(-0.5, 2),
                      labels = ~paste(., round((10^.), digits = 1), sep = "\n"),
-                     name = "Effect size (log scale)\nEffect Size (response ratio)")+
-  theme_black()
+                     name = "Effect size (log scale)\nEffect Size (response ratio)")
 
-# Effect size plot (back nut model) ------
+# Figure 2  ------
 back_nut_plot + nat_plot + pp_plot + 
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null"))) 
 
@@ -427,8 +497,9 @@ back_nut_plot + nat_plot + pp_plot +
 #       height = 9, width = 16, dpi = 600)
 
 
-# Graph the other models! --------
-# do the same thing for a supplement figure
+# Supplemental Figs  --------
+
+# Lat effect supp fig --------
 
 # Lat effect size
 lat_effect_sum <- coef(summary(model_full_lat)) %>%
@@ -484,14 +555,14 @@ pp_plot2 <- effect_plot(pp_effect_sum2, ci.lb_adjust, ci.up_adjust, duh, pal_sta
                      labels = ~paste(., round((10^.), digits = 1), sep = "\n"),
                      name = "Effect size (log scale)\nEffect Size (response ratio)")
 
-# Lat effect size plot ------
+# Put the plot together 
 lat_plot + nat_plot2 + pp_plot2 + 
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
 #ggsave("Output/Pub_figs/lat_effect_size_mod2.png", device = "png",
 #       height = 9, width = 16, dpi = 600)
 
-# Temperature effect size
+# Temperature effect supp fig ----
 temp_effect_sum <- coef(summary(model_full_temp)) %>%
   slice(-(3:9)) %>%
   slice(-1) %>%
@@ -544,124 +615,16 @@ pp_plot3 <- effect_plot(pp_effect_sum3, ci.lb_adjust, ci.up_adjust, duh, pal_sta
                      labels = ~paste(., round((10^.), digits = 1), sep = "\n"),
                      name = "Effect size (log scale)\nEffect Size (response ratio)")
 
-# Temp effect size plot ------
+# Putt the plot together
 temp_plot + nat_plot3 + pp_plot3 + 
   plot_layout(ncol = 1, heights = unit(c(1.3, 6.6, 7.9), c("cm", "null")))
 
 #ggsave("Output/Pub_figs/temp_effect_size_mod2.png", device = "png",
 #       height = 9, width = 16, dpi = 600)
-
-# Figure 1 -----
-
-# Figure 1a is the study site map
-lat_long <- meta_data %>%
-  distinct(paper_num, lat_dec, long_dec, climate) %>%
-  as.data.frame() %>%
-  mutate(lat = lat_dec,
-         long = long_dec,
-         climate = factor(climate, levels = c("Polar", "Temperate", "Subtropics", "Tropics"))) %>%
-  st_as_sf(coords = c("long_dec", "lat_dec")) %>%
-  st_set_crs(4326)
-
-# Transform to a crs that uses meters as the distance
-coords_jitter <- meta_coords %>%
-  st_transform(3358) %>%
-  st_jitter(nc_points, amount = 150000) %>%
-  st_transform(4326)
-
-# Load simple world map from package "rnaturalearth"
-world <- ne_countries(scale = "medium", returnclass = "sf")
-
-# Good sites for plotting help
-# https://r-spatial.org/r/2018/10/25/ggplot2-sf.html
-
-# https://mhallwor.github.io/_pages/Tidyverse_intro
-
-# Define palettes
-blue <- paste("#b9d1df", sep="")
-pal_ew <- c("#00496f", "#0f85a0", "#ed8b00", "#dd4124")
-
-# set seed
-set.seed(987654321)
-
-#Fig1a <- 
-ggplot() +
-  geom_sf(data = world, fill = "white", colour = blue) +
-  geom_sf(data = coords_jitter, 
-          aes(fill = climate), 
-          colour = "black", pch = 21, size = 3, alpha = 0.5) +
-  theme_bw() +
-  theme(panel.background = element_rect(fill = blue),
-        axis.text = element_text(size = 12, colour = "black"),
-        axis.title = element_text(size = 13, colour = "black"),
-        legend.title = element_text(size = 12, colour = "black"),
-        legend.text = element_text(size = 11, colour = "black")) +
-  xlab("Longitude") + ylab("Latitude") + labs(fill = "Climate") +
-  coord_sf(expand = FALSE)+
-  scale_y_continuous(limits = c(-79, 89)) +
-  scale_x_continuous(limits = c(-180, 181)) +
-  scale_fill_manual(values = (pal_ew))
-
-#ggsave("Output/Pub_figs/meta_map.png", width = 7.08661, height = 3, dpi = 600)
-
-
-# Now make Fig 1b
-# This is the combination of animals and pp used
-set.seed(1234) # so things stop jumping around!
-
-#Fig1b <- 
-meta_data %>% 
-  filter(climate != "Subtropics") %>%
-  rbind(meta_data %>% filter(climate == "Subtropics")) %>%
-  mutate(climate = factor(climate, 
-        levels = c("Polar", "Temperate", "Subtropics", "Tropics"))) %>%
-  ggplot() +
-  geom_jitter(aes(c_group, pp_groupz, fill = climate, pch = nat_bin),
-              size = 3.5, alpha = 0.3, width = 0.35, height = 0.35) +
-  theme_classic() +
-  labs(x = "Consumer taxa", y = "Primary producer taxa",
-       pch = "Experiment", fill = "Climate") +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1),
-        axis.text = element_text(size = 12, colour = "black"),
-        axis.title = element_text(size = 13, colour = "black"),
-        legend.title = element_text(size = 12, colour = "black"),
-        legend.text = element_text(size = 11, colour = "black")) +
-  scale_fill_manual(values = (pal_ew)) +
-  scale_shape_manual(values = c(21, 22, 23, 24, 25)) +
-  guides(fill = guide_legend(override.aes = 
-                list(size = 3.5, pch = 21, alpha = 0.4)),
-         pch = guide_legend(override.aes = 
-                list(size = 3.5, colour = "black", alpha = 0.9)))
-
-#ggsave("Output/Pub_figs/taxa_region.png", device = "png",
-#       height = 4, width = 7.08661, dpi = 600)
-
-# Fig2a/Fig2b
-
-# Plot just cont effects 
-# GRAPH ALL CONT EFFECTS
-cont_effect_sum <- rbind(back_nut_effect_sum, temp_effect_sum, lat_effect_sum)
-# these effect tables are generated above when I'm plotting each fig by itself
-
-# just a heinous plot
-ggplot(cont_effect_sum, aes(y = dummy, x = estimate, xmin = ci.lb, xmax = ci.ub, colour = rowname)) +
-  geom_point(size = 6) +
-  geom_errorbar(width = .5, size = 2) +
-  geom_vline(xintercept=0, color="white", linetype="dashed") +
-  labs(x = "Standardized effect size", y = " ")  +
-  theme_black() +
-  theme(legend.position = "none") +
-  scale_y_discrete(labels = cont_labs) +
-  scale_colour_manual(values = rev(pal_sm)) +
-  facet_wrap(~ rowname, nrow = 3, labeller = labeller(rowname = cont_labs)) + 
-  theme(panel.spacing = unit(2, "lines"))
   
-#ggsave("Output/Pub_figs/cont_effects.png", device = "png",
-#     height = 9, width = 16, dpi = 600)
-  
-# Tables/summary stats ------
+# Tables ------
 
-# Let's make a table of the different pp responses! -----
+# PP responses table -----
 # OK SO what I think I want is twofold
 # I want to present a table of the metrics I got means of to estimate productivity
 # That will be something like growth (change/time), biomass, percent cover, density, etc
@@ -673,7 +636,19 @@ metrics <- meta_data %>%
                               TRUE ~ as.character(response))) %>%
   count(response)
 
-# Look at individual metrics to sea what was measured for each
+# PP and consumer species tables  -----
+# table of pp species used
+pp_used <- meta_data %>%
+  count(pp_group, pp_family, pp_genus, pp_speces) # typo in datasheet
+
+# Table of consumer species used
+c_used <- meta_data %>%
+  count(c_group, c_family, c_genus, c_species)
+
+# Summary stats ----
+
+# Look at individual pp metrics to sea what was measured for each
+# Run this for each metric
 measured <- meta_data %>%
   filter(response == "width") %>%
   select(response, measured, growth_rate, pp_taxa, comments)
@@ -682,7 +657,7 @@ measured <- meta_data %>%
 growth <- meta_data %>%
   group_by(growth_rate) %>%
   summarise(n = n())
-  
+
 # Which metrics were used to measure growth rate?
 growth_metrics <- meta_data %>%
   filter(growth_rate == "Y") %>%
@@ -693,39 +668,16 @@ other_metrics <- meta_data %>%
   filter(growth_rate == "N") %>%
   count(response)
 
-# Which species were used? -----
-pp_used <- meta_data %>%
-  count(pp_group, pp_family, pp_genus, pp_speces) # typo in datasheet
-
-c_used <- meta_data %>%
-  count(c_group, c_family, c_genus, c_species)
-
-c_used <- meta_data %>%
-  mutate(c_activity = 
-           case_when(c_group == "Bird" | c_group == "Fish" ~ "Vertebrate",
-                     c_group == "Echinoderm" | c_group == "Cnidaria" ~ "Mobile Invert",
-                     c_group == "Mollusc" | c_group == "Sponge"  ~ "Sessile Invert")) %>%
-  count(c_activity, c_group, c_family, c_genus, c_species)
-
+# Cross of consumer x pp species used
 cross <- meta_data %>%
   count(pp_groupz, c_group) %>%
   mutate(percent = n/sum(n))
-  
-# what percentage of studies fell into each category?
-# Experimental design
-nat_n2 <- nat_n %>%
-  mutate(percent = n/sum(n),
-         delta = 0.2 - percent)
 
-# PP group
-pp_n2 <- pp_n %>%
-  mutate(percent = n/sum(n))
-
-# consumers used?
-c_n <- meta_data %>%
+# % of consumers used in each broad category?
+meta_data %>%
   mutate(c_activity = case_when(c_group == "Bird" | c_group == "Fish" ~ "Vertebrate",
-                                c_group == "Echinoderm" | c_group == "Cnidaria" ~ "Mobile Invert",
-                                c_group == "Mollusc" | c_group == "Sponge"  ~ "Sessile Invert")) %>%
+              c_group == "Echinoderm" | c_group == "Cnidaria" ~ "Mobile Invert",
+              c_group == "Mollusc" | c_group == "Sponge" ~ "Sessile Invert")) %>%
   group_by(c_activity) %>%
   summarise(n = n()) %>%
   mutate(percent = n/sum(n))   
@@ -733,9 +685,8 @@ c_n <- meta_data %>%
 # And one sessile should be mobile
 # So if evens out! No prob!
 
-
 # Abs lat
-lat_n <- meta_data %>%
+meta_data %>%
   distinct(paper_num, .keep_all = TRUE) %>%
   count(climate)%>%
   mutate(percent = n/sum(n))
@@ -745,7 +696,7 @@ meta_data %>%
   distinct(paper_num, .keep_all = TRUE) %>%
   mutate(dummy = 1) %>%
   ggplot(aes(abs_lat, dummy)) +
-  geom_point()
+  geom_jitter()
 
 # Which papers did I get background nut or temp proxies for? ----
 bn_sum <- meta_data %>%
@@ -763,10 +714,9 @@ temp_proxy <- meta_data %>%
   filter(temp_proxy == "proxy") %>%
   select(author, paper_num, lab_field, year_of_study, season, temp_proxy_date, temp_proxy_dist_km, temp, comments) %>%
   distinct(paper_num, .keep_all = TRUE)
-
+# And proxied the temperature for 20 papers
 
 # Independence and Bias -------
-
 funnel.rma(model_all)
 funnel.rma(model_full_lat)
 funnel.rma(model_full_back)
@@ -774,7 +724,6 @@ funnel.rma(model_full_temp)
 funnel.rma(model_null)
 
 # A bit of a right skew
-
 fsn(yi = yi, vi = vi, data = meta_data, type="Rosenthal") #file drawer analysis (missing studies have an effect size = 0)
 # Fail-safe N: 50,340
 # That seems like quite a large number?????
