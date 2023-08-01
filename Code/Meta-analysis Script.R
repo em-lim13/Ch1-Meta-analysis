@@ -107,6 +107,12 @@ meta_data <- meta_calc %>%
   mutate(indiv = as.factor(indiv),
          paper_num = as.factor(paper_num))
 
+# Make a df for the SST data extractions
+meta_SST <- meta_data %>%
+  dplyr::select(indiv, long_dec, lat_dec, year_of_study, season)
+  
+write_csv(meta_SST, "Output/Data/meta_for_SST.csv")
+
 # Multilevel models ------
 # Link to book with help:
 # https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/metareg.html
