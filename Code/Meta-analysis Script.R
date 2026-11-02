@@ -16,6 +16,7 @@ library(glmmTMB)
 library(DHARMa)
 library(ggeffects)
 library(patchwork)
+library(rnaturalearthdata)
 
 # Packages for map
 library(sf)
@@ -1186,7 +1187,7 @@ pp_labs <- c("Algae", "Coral", "Phytoplankton", "Plants")
 ### Fig.1a Lat vs temp vs nutrients ---------------------------------------------
 set.seed(123)
 
-ggplot() +
+fig.1a <- ggplot() +
   # add NA's for bn first
   geom_jitter(data = meta_df %>% 
                 filter(bn_proxy == "proxy"), 
@@ -1200,10 +1201,13 @@ ggplot() +
               size = 0.5, alpha = 0.7, height = 1, width = 2.5)  +
   viridis::scale_colour_viridis() +
   viridis::scale_fill_viridis() +
-  labs(x = "Absolute latitude", colour = expression("N"~(mu*M)), y = expression("Annual SST " ( degree*C))) +
+  labs(x = "Absolute latitude", 
+       colour = expression("N"~(mu*M)), 
+       y = expression("Annual SST " ( degree*C))) +
   xlim(c(0, 80)) +
-  pub_theme()
-# ggsave("Figures/Fig.1a.png", device = "png", height = 60, width = 84, units = c("mm"), dpi = 600)
+  pub_theme() +
+  theme(legend.box.spacing = unit(0, "pt") )
+fig.1a
 
 
 ### Fig.1b - study site map --------
@@ -1245,24 +1249,13 @@ world_clipped <- st_intersection(world, globe_mask_sf)
 points_clipped <- st_intersection(coords_jitter, globe_mask_sf)
 
 # Plot with Mollweide and correct ellipse proportions
-ggplot() +
+fig.1b <- ggplot() +
   geom_sf(data = globe_mask_sf, fill = blue, color = NA) +
   geom_sf(data = world_clipped, fill = "white", color = "black") +
-  # LME polygons
- # geom_sf(data = lme_clipped, aes(fill = LME_NAME), color = "black", alpha = 0.5) +
   # add coordinates for each study
   geom_sf(data = points_clipped, pch = 21, colour = "black", fill = pal1, size = 2.5, alpha = 0.6) +
   # Add the black circle (ellipse) around the Earth
   geom_sf(data = globe_mask_ellipse, fill = NA, color = "black", size = 0.5) +  # Black circle outline
-  # Circular labels for LMEs
-#  geom_sf_label(
-#    data = lme_c,
-#    aes(label = LME_NUMBER),   # replace with your label column
-#    fill = "white",
-#    color = "black",
-#    label.r = unit(0.5, "lines"),  # rounded corners
-#    label.size = 0.1,
-#    size = 1.1) +
   # Set the coordinate system to Mollweide and let it manage aspect ratio
   coord_sf(crs = st_crs("+proj=moll"), 
            expand = FALSE) +  # No manual scaling, just preserve aspect ratio
@@ -1271,12 +1264,13 @@ ggplot() +
     axis.text = element_blank(),    # Remove axis labels
     axis.title = element_blank(),   # Remove axis titles
     axis.ticks = element_blank(),    # Remove axis ticks
+    axis.ticks.length = unit(0, "pt"),
     axis.line = element_blank(),    # Remove the axis lines
     panel.border = element_blank(),  # Remove the black border around the plot
-    legend.position = "none"
-  ) +
+    legend.position = "none",
+    plot.margin=grid::unit(c(0,0,0,0),"cm")) +
   scale_fill_manual(values = viridis::viridis(66))
-# ggsave("Figures/Fig.1b.png", width = 7.08661, height = 3, dpi = 600)
+fig.1b
 
 
 ### Fig.1c - trend in publishing over time ------
@@ -1314,7 +1308,7 @@ meta_y <- data.frame(
   filter(!(tt == "Temperate" & cum_sum == 0))
 
 # Plot
-ggplot(meta_y, aes(x = year, y = cum_sum, colour = tt, lty = tt)) +
+fig.1c <- ggplot(meta_y, aes(x = year, y = cum_sum, colour = tt, lty = tt)) +
   geom_line(linewidth = 0.4) +
   scale_colour_manual(
     values = c(
@@ -1325,8 +1319,18 @@ ggplot(meta_y, aes(x = year, y = cum_sum, colour = tt, lty = tt)) +
   pub_theme() +
   theme(legend.position = c(0.3, 0.75),
         legend.title = element_blank())
+fig.1c
 
-# ggsave("Figures/Fig.1c.png", device = "png", height = 60, width = 84, units = c("mm"), dpi = 600)
+# Put them together
+(fig.1a + fig.1c) / plot_spacer() /fig.1b + 
+  plot_layout(tag_level = 'new') +
+  plot_annotation(tag_levels = list(c('a', 'c', 'b'))) + 
+  #plot_layout(heights = c(2, -1, 1))
+  plot_layout(heights = unit(c(2, -0.25, 1), c('in', 'in', 'null')))
+  
+# ggsave("Figures/Fig.1panels.png", device = "png", height = 5.3, width = 6.61, units = c("in"), dpi = 800)
+
+# ggsave("Figures/Fig.1panels.pdf", device = "pdf", height = 5.3, width = 6.61, units = c("in"), dpi = 800)
 
 
 ## Fig.2 - pp x nat x tt --------------------------------------------------------
@@ -1392,7 +1396,7 @@ ggplot() +
 
 # ggsave("Figures/Fig.2_pp_x_c.png", device = "png", height = 100, width = 140, units = c("mm"), dpi = 600)
 
-
+# ggsave("Figures/Fig.2_pp_x_c.pdf", device = "pdf", height = 100, width = 140, units = c("mm"), dpi = 600)
 
 
 ## Fig.3 Overall estimates for pp groups -------------------------------------
@@ -1502,7 +1506,7 @@ ggplot(overall_mega_df, aes(emmean, pp, size = point_size)) +
 
 # ggsave("Figures/Fig.3.pp_overall.png", device = "png", height = 80, width = 90, units = c("mm"), dpi = 600)
 
-
+# ggsave("Figures/Fig.3.pp_overall.pdf", device = "pdf", height = 80, width = 90, units = c("mm"), dpi = 600)
 
 ## Fig.4 - Cont mods ----------------------------------------------------------
 
@@ -1547,7 +1551,8 @@ lat_predict <- as.data.frame(predict(object = model_lat_untran,
 # slope plot
 slope_l <- int_effect_plot(int_effect_sum_l) +
   scale_colour_manual(values = rev(pal5)) +
-  xlab("Slope")
+  xlab("Slope") +
+  theme(axis.title.y = element_blank())
 
 # scatter plot
 scatter_l <- scatter_fun(lat_predict, meta_df, abs_lat, rev(pal5)) + 
@@ -1717,6 +1722,8 @@ scatter_a <- scatter_fun(add_predict, meta_added, added_N_log, rev(pal5)) +
 
 # ggsave("Figures/Fig.4.cont_mods.png", device = "png", height = 125, width = 200, units = c("mm"), dpi = 600)
 
+# ggsave("Figures/Fig.4.cont_mods.pdf", device = "pdf", height = 125, width = 200, units = c("mm"), dpi = 600)
+
 
 ## Fig.5 Cat covariate plots --------------------------------------------------------------
 # use the huge df we made for fig.3 again!
@@ -1744,6 +1751,7 @@ ggplot(mega_df %>% filter(type != "All"), aes(emmean, variable, size = point_siz
 
 # ggsave("Figures/Fig.5.covariates.png", device = "png", height = 170, width = 210, units = c("mm"), dpi = 600)
 
+# ggsave("Figures/Fig.5.covariates.pdf", device = "pdf", height = 170, width = 210, units = c("mm"), dpi = 600)
 
 
 ## Fig.6 - Duration plots --------------------------------------------------
@@ -1788,6 +1796,7 @@ scatter_d <- scatter_fun(dur_predict, meta_df, duration_log, rev(pal5)) +
   plot_annotation(tag_levels = "a")
 # ggsave("Figures/Fig.6.dur.png", device = "png", height = 125, width = 90, units = c("mm"), dpi = 600)
 
+# ggsave("Figures/Fig.6.dur.pdf", device = "pdf", height = 125, width = 90, units = c("mm"), dpi = 600)
 
 # Supplemental Figures ---------------------------------------------------------
 
